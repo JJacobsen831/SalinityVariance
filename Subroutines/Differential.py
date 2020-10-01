@@ -13,13 +13,11 @@ import ROMS_Tools_Mask as rt
 def dV(RomsFile) :
     """ Load full roms grid and compute differential volume of each cell"""
     RomsNC = nc4(RomsFile, 'r')
-
-    #compute z
-    romsvars = {'h' : RomsNC.variables['h'][:], \
-                'zeta' : RomsNC.variables['zeta'][:]}
-    
+   
     #compute depth at w points
-    depth_domain = dep._set_depth_T(RomsFile, None, 'w', romsvars['h'], romsvars['zeta'])
+    depth_domain = dep._set_depth_T(RomsFile, None, 'w',\
+                                    RomsNC.variables['h'][:],\
+                                    RomsNC.variables['zeta'][:])
         
     dz = np.diff(depth_domain, n = 1, axis = 1)
             
