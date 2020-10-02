@@ -63,4 +63,16 @@ def dA(RomsFile, RomsGrd) :
     
     return Ax_norm, Ay_norm
 
-
+def dA_top(RomsNC):
+    ndepth = RomsNC.variables['salt'][0, :, 0, 0].size
+    
+    #dlon dlat
+    dx = 1/np.array(RomsNC.variables['pm'][:])
+    dy = 1/np.array(RomsNC.variables['pn'][:])
+    
+    #dA
+    dA = dx*dy
+    dA_depth = np.repeat(np.array(dA)[np.newaxis, :, :], ndepth, axis = 0)
+    
+    return dA_depth 
+    

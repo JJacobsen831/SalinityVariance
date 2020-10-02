@@ -5,7 +5,18 @@ Masking tools and generic tools to help with processing ROMS files
 @author: Jasen
 """
 import numpy as np
+import numpy.ma as ma
 from netCDF4 import Dataset as nc4
+
+def RhoMask(RomsNC, latbounds, lonbounds) :
+    """
+    defines mask on rho points only, without time dimension
+    """
+    Rholats = (RomsNC.variables['lat_rho'][:] >= latbounds[0])*(RomsNC.variables['lat_rho'][:] <= latbounds[1])
+    Rholons = (RomsNC.variables['lon_rho'][:] >= lonbounds[0])*(RomsNC.variables['lon_rho'][:] <= lonbounds[1])
+    Rho_Mask = ma.asarray(np.invert(Rholats*Rholons))
+    
+    return Rho_Mask
 
 
 def RhoUV_Mask(RomsFile, latbounds, lonbounds) :
@@ -13,6 +24,8 @@ def RhoUV_Mask(RomsFile, latbounds, lonbounds) :
     defines masks on rho, u, and v points
     """
     RomsNC = nc4(RomsFile, 'r')
+    Rholats = (RomsNC.variables['lat_rho'][:] >= latbounds[0])*(RomsNC.variables['lat_rho'][:] <= latbounds[1])
+    Rholons = (RomsNC.variables['lon_rho'][:] >= lonbounds[0])*(RomsNC.variables['lon_rho'][:] <= lonbounds[1])
         
     #define rho mask
     Rholats = (RomsNC.variables['lat_rho'][:] >= latbounds[0])*(RomsNC.variables['lat_rho'][:] <= latbounds[1])
