@@ -28,20 +28,25 @@ AvgFile = FilePath + 'ocean_avg_2014_0006.nc'
 Avg = nc4(AvgFile, 'r')
 
 Diag = nc4(FilePath + 'ocean_dia_2014_0006.nc', 'r')
-Grd = nc4('/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc', 'r')
 
-#load time for steping
-time = Avg.variables['ocean_time'][:]
+Grd = nc4('/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc', 'r')
 
 #create CV mask
 RhoMask = rt.RhoMask(AvgFile, latbounds, lonbounds)
 
+#load time for steping
+time = Avg.variables['ocean_time'][:]
+
+#load dA
+dA_xy = ma.array(dff.dA_top(Avg), mask = RhoMask[0,0, :, :])
+
+#integrate time derivative of s_prime^2
+SprInt = np.empty(time.shape[0])
+SprInt.fill(np.nan)
 for t in range(time.shape[0]) :
     #avg file variables at t
     salt = ma.array(Avg.variables['salt'][t, :, :, :], mask = RhoMask)
-    
-    s_prime = salt - salt.mean()
-    
+    s_prime = salt - salt.mean()    
     deltaA = ma.diff(ma.array(dep._set_depth(AvgFile, None, 'w', \
                                              Avg.variables['h'][:], \
                                              Avg.variables['zeta'][t, :, :]), \
@@ -69,6 +74,13 @@ for t in range(time.shape[0]) :
     
     #time derivative of cell volume on avg points
     dDelta_dt = (deltaH1 - deltaH0)/dtH
+    
+    #compute volume
+    dV = dA_xy*deltaA
+    
+    #integrate
+    SprInt[t] = ma.sum(2*s_prime*(salt_rate - salt/deltaA*dDelta_dt)*dV)
+
     
     
     
