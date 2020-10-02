@@ -5,7 +5,8 @@ Created on Tue Sep 29 11:14:53 2020
 @author: Jasen
 """
 import os
-os.chdir('/Users/Jasen/Documents/GitHub/SalinityVarianceBudget/Subroutines/')
+#os.chdir('/Users/Jasen/Documents/GitHub/SalinityVarianceBudget/Subroutines/')
+os.chdir('/auto/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Subroutines/')
 
 import obs_depth_JJ as dep
 #import ROMS_Tools_Mask as rt
@@ -15,11 +16,12 @@ from netCDF4 import Dataset as nc4
 import Differential as dff
 
 #files
-FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windcurrent.diags/out/'
-HistFile = FilePath + 'ocean_hist_2014_0006.nc'
-AvgFile = FilePath + 'ocean_avg_2014_0006.nc'
-DiagFile = FilePath + 'ocean_dia_2014_0006.nc'
+FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
+HistFile = FilePath + 'ocean_his_2014_0005.nc'
+AvgFile = FilePath + 'ocean_avg_2014_0005.nc'
+DiagFile = FilePath + 'ocean_dia_2014_0005.nc'
 GrdFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
+
 
 #????
 #to conserve memory should I define indices of desired CV instead of loading
