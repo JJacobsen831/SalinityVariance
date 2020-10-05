@@ -6,7 +6,7 @@ Created on Fri Oct  2 14:37:16 2020
 """
 
 import os
-os.chdir('/Users/Jasen/Documents/GitHub/SalinityVarianceBudget/Subroutines/')
+os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Subroutines/')
 
 import obs_depth_JJ as dep
 import ROMS_Tools_Mask as rt
@@ -32,14 +32,14 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 Grd = nc4('/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc', 'r')
 
 #create CV mask
-RhoMask2D = rt.RhoMask(AvgFile, latbounds, lonbounds)
-RhoMask = np.repeat(np.array(RhoMask2D)[np.newaxis, :, :], axis = 0)
+RhoMask2D = rt.RhoMask(Avg, latbounds, lonbounds)
+RhoMask = np.repeat(np.array(RhoMask2D)[np.newaxis, :, :], Avg.variables['salt'].shape[1], axis = 0)
 
 #load time for steping
 time = Avg.variables['ocean_time'][:]
 
 #load dA
-dA_xy = ma.array(dff.dA_top(Avg), mask = RhoMask[0,0, :, :])
+dA_xy = ma.array(dff.dA_top(Avg), mask = RhoMask)
 
 #integrate time derivative of s_prime^2
 SprInt = np.empty(time.shape[0])
@@ -53,7 +53,7 @@ for t in range(time.shape[0]) :
     deltaA = ma.array(ma.diff(dep._set_depth(AvgFile, None, 'w', \
                                              Avg.variables['h'][:], \
                                              Avg.variables['zeta'][t,:,:]),
-                              n = 1, axis = 1), \
+                              n = 1, axis = 0), \
                       mask = RhoMask)
     
     #diag file variables at t
@@ -64,13 +64,13 @@ for t in range(time.shape[0]) :
     deltaH0 = ma.array(ma.diff(dep._set_depth(HistFile, None, 'w', \
                                              Hist.variables['h'][:], \
                                              Hist.variables['zeta'][t,:,:]),
-                              n = 1, axis = 1), \
+                              n = 1, axis = 0), \
                       mask = RhoMask)
     
     deltaH1 = ma.array(ma.diff(dep._set_depth(HistFile, None, 'w', \
                                              Hist.variables['h'][:], \
                                              Hist.variables['zeta'][t+1,:,:]),
-                              n = 1, axis = 1), \
+                              n = 1, axis = 0), \
                       mask = RhoMask)
     
     dtH = Hist.variables['ocean_time'][t+1] - Hist.variables['ocean_time'][t]
