@@ -9,10 +9,64 @@ Exact budget subroutines compute each term at time step
 import numpy as np
 import numpy.ma as ma
 import obs_depth_JJ as dep
-import GridShift
-import ROMS_Tools_Mask as rt
-import Differential as dff
+import GridShift_3D as GridShift
+import Mask_Tools as mt
+import Differential_Tstep as dff
 import Gradients as gr
+
+def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
+    """
+    Masks for fluxes across boundaries
+    """
+    ndepth = Avg.variables['salt'].shape[1]
+    
+    #define masks for u and v points
+    U_Mask = np.repeat(mt.UMask(AvgFile, latbounds, lonbounds, precision)[np.newaxis, :, :], \
+                       ndepth, axis = 0)
+        
+    V_Mask = np.repeat(mt.VMask(AvgFile, latbounds, lonbounds, precision)[np.newaxis, :, :], \
+                       ndepth, axis = 0)
+        
+    #Face Masks
+    NFace, WFace, SFace, EFace = mt.FaceMask(AvgFile, latbounds, lonbounds)
+    NorthFace = np.repeat(NFace, ndepth, axis = 0)
+    SouthFace = np.repeat(SFace, ndepth, axis = 0)
+    WestFace = np.repeat(WFace, ndepth, axis = 0)
+    EastFace = np.repeat(EFace, ndepth, axis = 0)
+    
+    #Control Volume Mask on Rho points
+    RhoMask = np.repeat(mt.RhoMask(Avg, latbounds, lonbounds)[np.newaxis, :, :], \
+                        ndepth, axis = 0)
+    
+    Masks = {
+            'RhoMask':RhoMask,\
+            'Umask' : U_Mask, \
+            'Vmask' : V_Mask, \
+            'NFace' : NorthFace, \
+            'WFace' : WestFace, \
+            'SFace' : SouthFace, \
+            'EFace' : EastFace, 
+            }
+    
+    return Masks
+
+def CellAreas(AvgFile, GridFile, Masks) :
+    """
+    Compute cell areas
+    """
+    #Areas of all cell faces
+    Ax_norm, Ay_norm = dff.dA(AvgFile, GridFile)
+    
+    #subset areas to faces of CV
+    Areas = {
+            'North_Ay' : ma.array(Ay_norm, mask = Masks['NFace']), \
+            'West_Ax' : ma.array(Ax_norm, mask = Masks['WFace']), \
+            'South_Ay' : ma.array(Ay_norm, mask = Masks['SFace']), \
+            'East_Ax' : ma.array(Ax_norm, mask = Masks['EFace'])
+            }
+    
+    return Areas
+
 
 def TimeDeriv(tstep, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     """
