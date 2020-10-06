@@ -50,15 +50,19 @@ def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
     
     return Masks
 
-def CellAreas(AvgFile, GridFile, Masks) :
+def CellAreas(AvgFile, Avg, GridFile, Masks) :
     """
     Compute cell areas
     """
+    #area of upward normal faces
+    Axy = dff.dA_top(Avg)
+    
     #Areas of all cell faces
     Ax_norm, Ay_norm = dff.dA(AvgFile, GridFile)
     
     #subset areas to faces of CV
     Areas = {
+            'Axy' : Axy, \
             'North_Ay' : ma.array(Ay_norm, mask = Masks['NFace']), \
             'West_Ax' : ma.array(Ax_norm, mask = Masks['WFace']), \
             'South_Ay' : ma.array(Ay_norm, mask = Masks['SFace']), \
@@ -68,14 +72,10 @@ def CellAreas(AvgFile, GridFile, Masks) :
     return Areas
 
 
-def TimeDeriv(tstep, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
+def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     """
     Exact volume time derivative of variance squared
     """
-    #compute variance
-    var = ma.array(Avg.variables['salt'][tstep, :, :, :], mask = Masks['RhoMask'])
-    v_prime = var - var.mean()
-    
     #change in vertical thickness of cell at average point
     deltaA = ma.array(ma.diff(dep._set_depth(AvgFile, None, 'w', \
                                              Avg.variables['h'][:], \
@@ -108,66 +108,18 @@ def TimeDeriv(tstep, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     #compute volume
     dV = dA_xy*deltaA
     
-    Int_Sprime = ma.sum(2*v_prime*(var_rate - var/deltaA*dDelta_dt)*dV)
+    Int_Sprime = ma.sum(2*vprime2*(var_rate - var/deltaA*dDelta_dt)*dV)
     
     return Int_Sprime
     
-def Flux_Masks(AvgFile, Avg, latbounds, lonbounds):
-    """
-    Masks for fluxes across boundaries
-    """
-    #define masks for u and v points
-    _, U_Mask, V_Mask = rt.RhoUV_Mask(AvgFile, latbounds, lonbounds)
-    
-    #Face Masks
-    NorthFace, WestFace, SouthFace, EastFace = rt.FaceMask(AvgFile,\
-                                                       latbounds, lonbounds)
-    
-    #Control Volume Mask on Rho points
-    RhoMask = np.repeat(rt.RhoMask(Avg, latbounds, lonbounds)[np.newaxis, :, :], Avg.variables['salt'].shape[1], axis = 0)
 
-    
-    Masks = {
-            'RhoMask':RhoMask,\
-            'Umask' : U_Mask, \
-            'Vmask' : V_Mask, \
-            'NFace' : NorthFace, \
-            'WFace' : WestFace, \
-            'SFace' : SouthFace, \
-            'EFace' : EastFace, 
-            }
-    
-    return Masks
-
-def CellAreas(AvgFile, GridFile, Masks) :
-    """
-    Compute cell areas
-    """
-    #Areas of all cell faces
-    Ax_norm, Ay_norm = dff.dA(AvgFile, GridFile)
-    
-    #subset areas to faces of CV
-    Areas = {
-            'North_Ay' : ma.array(Ay_norm, mask = Masks['NFace']), \
-            'West_Ax' : ma.array(Ax_norm, mask = Masks['WFace']), \
-            'South_Ay' : ma.array(Ay_norm, mask = Masks['SFace']), \
-            'East_Ax' : ma.array(Ax_norm, mask = Masks['EFace'])
-            }
-    
-    return Areas
-
-def Adv_Flux(tstep, Avg, varname, Areas, Masks):
+def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     """
     Compute advective fluxes through boundaries
     """
-    #Variance squared 
-    var = ma.array(Avg.variables[varname][tstep, :, :, :], \
-                   mask = Masks['RhoMask'])
-    v_prime2 = (var - var.mean())**2
-    
     #Shift from rho to u and v points
-    _var_u = GridShift.Rho_to_Upt(v_prime2)
-    _var_v = GridShift.Rho_to_Vpt(v_prime2)
+    _var_u = GridShift.Rho_to_Upt(vprime2)
+    _var_v = GridShift.Rho_to_Vpt(vprime2)
     
     #apply mask that is shifted to u and v points to variance squared
     var2_u = ma.array(_var_u, mask = Masks['U_Mask'])
@@ -200,18 +152,13 @@ def Adv_Flux(tstep, Avg, varname, Areas, Masks):
     
     return AdvFlux
     
-def Diff_Flux(tstep, Avg, AvgFile, GridFile, Masks, Areas, varname) :
+def Diff_Flux(tstep, vprime2, Avg, AvgFile, GridFile, Masks, Areas) :
     """
     Diffusive flux across CV boundaries
     """
-    #variance squared
-    var = ma.array(Avg.variables[varname][tstep, :, :, :], \
-                   mask = Masks['RhoMask'])
-    v_prime2 = (var - var.mean())**2
-    
     #Shift from rho to u and v points
-    _var_u = GridShift.Rho_to_Upt(v_prime2)
-    _var_v = GridShift.Rho_to_Vpt(v_prime2)
+    _var_u = GridShift.Rho_to_Upt(vprime2)
+    _var_v = GridShift.Rho_to_Vpt(vprime2)
     
     #apply mask that is shifted to u and v points to variance squared
     var2_u = ma.array(_var_u, mask = Masks['U_Mask'])
@@ -240,21 +187,16 @@ def Diff_Flux(tstep, Avg, AvgFile, GridFile, Masks, Areas, varname) :
     
     return DifFlux
 
-def Int_Mixing(tstep, Avg, AvgFile, GridFile, Masks, varname) :
+def Int_Mixing(tstep, vprime2, Avg, AvgFile, GridFile, Masks) :
     """
     Internal mixing within a control volume
     """
-    #variance squared
-    var = ma.array(Avg.variables[varname][tstep, :, :, :], \
-                   mask = Masks['RhoMask'])
-    v_prime2 = (var - var.mean())**2
-    
     #compute gradients squared
-    xgrad = ma.array(gr.x_grad_rho(AvgFile, GridFile, v_prime2), \
+    xgrad = ma.array(gr.x_grad_rho(AvgFile, GridFile, vprime2), \
                      mask = Masks['RhoMask'])
-    ygrad = ma.array(gr.y_grad_rho(AvgFile, GridFile, v_prime2), \
+    ygrad = ma.array(gr.y_grad_rho(AvgFile, GridFile, vprime2), \
                      mask = Masks['RhoMask'])
-    zgrad = ma.array(gr.z_grad_rho(AvgFile, GridFile, v_prime2), \
+    zgrad = ma.array(gr.z_grad_rho(AvgFile, GridFile, vprime2), \
                      mask = Masks['RhoMask'])
     
     #vertical viscosity on w points
@@ -277,5 +219,4 @@ def Int_Mixing(tstep, Avg, AvgFile, GridFile, Masks, varname) :
     mixing = (ma.sum(x_m) + ma.sum(y_m) + ma.sum(z_m))*dV
     
     return mixing
-    
     
