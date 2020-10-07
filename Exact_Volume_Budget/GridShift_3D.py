@@ -6,6 +6,7 @@ Created on Fri Aug  7 16:54:11 2020
 """
 import numpy as np
 
+
 def Upt_to_Rho(Upt_variable) :
     """
     Converts variables on u points to rho points
@@ -20,7 +21,7 @@ def Upt_to_Rho(Upt_variable) :
     
     
     _dx_pad = ma.concatenate((Upt_variable[:,:,0:1], Upt_variable,\
-                              Upt_variable[:,:,-2:-1]), axis = 3)
+                              Upt_variable[:,:,-2:-1]), axis = 2)
     
     d_x = 0.5*(_dx_pad[:,:, 0:_dx_pad.shape[3]-1] + \
                 _dx_pad[:,:, 1:_dx_pad.shape[3]])
@@ -31,16 +32,9 @@ def Vpt_to_Rho(Vpt_variable) :
     """
     Convert variable on v point to rho point
     """
-    if np.ma.is_masked(Vpt_variable) == True :
-        import numpy.ma as ma
-    else :
-        import numpy as ma
     
-    _dy_pad = ma.concatenate((Vpt_variable[:,0:1, :], Vpt_variable, \
-                              Vpt_variable[:,-2:-1, :]), axis = 2)
-    
-    d_y = 0.5*(_dy_pad[:, 0:_dy_pad.shape[2]-1] + \
-               _dy_pad[:,1:_dy_pad.shape[2]])
+    d_y = 0.5*(Vpt_variable[:, 0:Vpt_variable.shape[1]-1, :] + \
+               Vpt_variable[:,1:Vpt_variable.shape[1], :])
     
     return d_y
 
@@ -54,11 +48,11 @@ def Wpt_to_Rho(Wpt_variable) :
         import numpy as ma
     
     dvar_pad = ma.concatenate((Wpt_variable[0:1, :, :], Wpt_variable, \
-                               Wpt_variable[-2:-1, :, :]), axis = 1)
+                               Wpt_variable[-2:-1, :, :]), axis = 0)
     
     #average to rho points
-    d_z = 0.5*(dvar_pad[0:dvar_pad.shape[1]-1,:, :] + \
-                dvar_pad[1:dvar_pad.shape[1], :, :])
+    d_z = 0.5*(dvar_pad[0:dvar_pad.shape[0]-1,:, :] + \
+                dvar_pad[1:dvar_pad.shape[0], :, :])
     
     return d_z
     
@@ -110,8 +104,8 @@ def Rho_to_Upt(Rho_variable) :
     Convert Rho point to U point
     """
     #horzontal average to U points
-    Upt = 0.5*(Rho_variable[:, :, 0:Rho_variable.shape[3]-1] + \
-                     Rho_variable[:, :, 1:Rho_variable.shape[3]])
+    Upt = 0.5*(Rho_variable[:, :, 0:Rho_variable.shape[2]-1] + \
+                     Rho_variable[:, :, 1:Rho_variable.shape[2]])
     
     return Upt
 
@@ -119,7 +113,7 @@ def Rho_to_Vpt(Rho_variable) :
     """
     Convert Rho point to V point
     """
-    Vpt = 0.5*(Rho_variable[:, 0:Rho_variable.shape[2]-1, :] + \
-                           Rho_variable[:, 1:Rho_variable.shape[2], :])
+    Vpt = 0.5*(Rho_variable[:, 0:Rho_variable.shape[1]-1, :] + \
+                           Rho_variable[:, 1:Rho_variable.shape[1], :])
     
     return Vpt

@@ -11,31 +11,38 @@ import numpy as np
 import numpy.ma as ma
 from netCDF4 import Dataset as nc4
 import obs_depth_JJ as dep
-import ROMS_Tools_Mask as rt
 import GridShift3D as GridShift
 
 #distance terms for gradients
-def x_dist(RomsNC) :
+def xPad(Var) :
     """
-    compute dx for gradients 
-    Cell widths centered on rho points
+    Insert copy of array along x dimension at mask edges
     """
-    dx = 1/np.array(RomsNC.variables['pm'][:])
-    
-    return dx
+    mask_pad = np.ma.notmasked_edges(Var, axis = 2)
+    dvar_ = Var
+    dvar_[:,:, mask_pad[0][2][0]-1] = Var[:,:,mask_pad[0][2][0]]
+    dvar_[:,:,mask_pad[1][2][0]+1] = Var[:,:,mask_pad[1][2][0]]
+    dvar_pad = np.ma.concatenate((dvar_[:,:,0:1], Var, \
+                               dvar_[:,:,-2:-1]), axis = 2)
+    return dvar_pad
 
-def y_dist(RomsNC) :
+def yPad(Var) :
     """
-    compute dy for gradients
-    Cell widths centered on rho points
+    Insert copy of array along y dimension at mask edges
     """
-    dy = 1/np.array(RomsNC.variables['pn'][:])
+    mask_pad = np.ma.notmasked_edges(Var, axis = 1)
+    dvar_ = Var
+    dvar_[:,mask_pad[0][1][0]-1, :] = Var[:,mask_pad[0][1][0], :]
+    dvar_[:,mask_pad[1][1][0]+1, :] = Var[:,mask_pad[1][1][0], :]
     
-    return dy
+    dvar_pad = np.ma.concatenate((dvar_[:,0:1, :],\
+                               Var, \
+                               dvar_[:,-2:-1, :]), axis = 1)
+    return dvar_pad
 
-def x_grad_u(RomsNC, RomsGrd, var) :
+def x_grad_u(RomsNC, var) :
     """
-    compute x-gradient on u points
+    compute x-gradient on u points shifted to rho grid
     """
     #get mask
     Mask = ma.getmask(var)
@@ -44,154 +51,116 @@ def x_grad_u(RomsNC, RomsGrd, var) :
     dvar_rho = ma.diff(var, n = 1, axis = 2)
     
     #pad edges
-    mask_pad = ma.notmasked_edges(dvar_rho, axis = 2)
-    dvar_ = dvar_rho
-    dvar_[:,:, mask_pad[0][3][0]-1] = dvar_rho[:,:,mask_pad[0][3][0]]
-    dvar_[:,:,mask_pad[1][3][0]+1] = dvar_rho[:,:,mask_pad[1][3][0]]
-    dvar_pad = ma.concatenate((dvar_rho[:,:,0:1], dvar_rho, \
-                               dvar_rho[:,:,-2:-1]), axis = 2)
+    dvar_pad = xPad(dvar_rho)
     
     #shift to u points
     dvar_u = GridShift.Rho_to_Upt(dvar_pad)
     
-    #dx on rho points
-    _dx = x_dist(RomsNC)
-    
-    #dx on u points
-    dx = ma.array(GridShift.Rho_to_Upt(_dx), mask = Mask)
-    
+    #dx on rho points (identical to u points shifted; regular horizontal grid)
+    dx = ma.array(np.repeat(1/np.array(RomsNC.variables['pm'][:])[np.newaxis, :, :], \
+                            var.shape[0], axis = 0), mask = Mask)
     #gradient
     dvar_dx = dvar_u/dx
     
     return dvar_dx
 
 
-def x_grad_rho(RomsFile, RomsGrd, var) :
+def x_grad_rho(RomsNC, var) :
     """
-    Compute x-gradient assuming rectangular grid cells
+    Compute x-gradient on rho points with rho dimension
     """
     #get mask
     Mask = ma.getmask(var)
     
-    #gradient in x direction on u points
-    dvar_u = np.diff(var, n = 1, axis = 2)
+    #shift rho points to u points
+    var_pad = xPad(var)
+    var_u = GridShift.Rho_to_Upt(var_pad)
     
-    #shift u points to rho points
-    dvar = GridShift.Upt_to_Rho(dvar_u)
+    #gradient in x direction on rho points
+    dvar_rho = np.diff(var_u, n = 1, axis = 2)
     
-    #lon positions [meters]
-    x_dist = rt.rho_dist_grd(RomsGrd)[0]
-    
-    #repeat over depth and time space and apply mask
-    dx = ma.array(rt.AddDepthTime(RomsFile, x_dist), mask = Mask)
+    #dx on rho points
+    dx = ma.array(np.repeat(1/np.array(RomsNC.variables['pm'][:])[np.newaxis, :, :], \
+                            var.shape[0], axis = 0), mask = Mask)
     
     #compute gradient
-    dvar_dx = dvar/dx
+    dvar_dx = dvar_rho/dx
     
     return dvar_dx
 
-def y_grad_rho(RomsFile, RomsGrd, varname):
+def y_grad_rho(RomsNC, var):
     """
-    Compute y-gradient assuming rectangular grid cells
+    Compute y-gradient on rho points
     """
-    if type(varname) == str :
-        #load roms file
-        RomsNC = nc4(RomsFile, 'r')
-        #load variable
-        _var = RomsNC.variables[varname][:]
-        
-    else:
-        _var = varname
-    
     #get mask
-    Mask = ma.getmask(_var)
+    Mask = ma.getmask(var)
     
-    #compute difference
-    dvar_v = np.diff(_var, n = 1, axis = 2)
-    
-    #shift from v points to rho points
-    dvar = GridShift.Vpt_to_Rho(dvar_v)
-    
-    #lon positions [meters]
-    y_dist = rt.rho_dist_grd(RomsGrd)[1]
-    
-    #repeat over depth and time space and apply mask
-    dy = ma.array(rt.AddDepthTime(RomsFile, y_dist), mask = Mask)
-    
-    #compute gradient
-    dvar_dy = dvar/dy
-    
-    return dvar_dy
-
-def y_grad_v(RomsFile, RomsGrd, varname):
-    """
-    Compute y-gradient on v points
-    """
-    if type(varname) == str :
-        #load roms file
-        RomsNC = nc4(RomsFile, 'r')
-        #load variable
-        _var = RomsNC.variables[varname][:]
-        
-    else:
-        _var = varname #[v points]
-    
-    #get mask 
-    Mask = ma.getmask(_var)
+    #shift rho points to v points
+    var_pad = yPad(var)
+    var_v = GridShift.Rho_to_Vpt(var_pad)
     
     #compute difference [rho points]
-    dvar_rho = ma.diff(_var, n = 1, axis = 2)
+    dvar_rho = np.diff(var_v, n = 1, axis = 1)
     
-    #pad
-    mask_pad = ma.notmasked_edges(dvar_rho, axis = 2)
-    dvar_ = dvar_rho
-    dvar_[:,:,mask_pad[0][2][0]-1, :] = dvar_rho[:,:,mask_pad[0][2][0], :]
-    dvar_[:,:,mask_pad[1][2][0]+1, :] = dvar_rho[:,:,mask_pad[1][2][0], :]
-    
-    dvar_pad = ma.concatenate((dvar_[:,:,0:1, :],\
-                               dvar_, \
-                               dvar_[:,:,-2:-1, :]), axis = 2)
-    
-    #shift to V points
-    dvar_v = GridShift.Rho_to_Vpt(dvar_pad)
-    
-    #dy
-    y_dist = rt.rho_dist_grd(RomsGrd)[1]
-    dy =rt.AddDepthTime(RomsFile, y_dist)
-    dy_v =  ma.array(GridShift.Rho_to_Vpt(dy), mask = Mask)
+    #dy on rho points
+    dy = ma.array(np.repeat(1/np.array(RomsNC.variables['pn'][:])[np.newaxis, :, :], \
+                            var.shape[0], axis = 0), mask = Mask)
     
     #compute gradient
-    dvar_dy = dvar_v/dy_v
+    dvar_dy = dvar_rho/dy
+    
+    return dvar_dy
+
+def y_grad_v(RomsNC, var):
+    """
+    Compute y-gradient on v points that are shifted to rho grid
+    """
+    #get mask 
+    Mask = ma.getmask(var)
+    
+    #compute difference [v points]
+    dvar_rho = ma.diff(var, n = 1, axis = 1)
+    
+    #pad edges of mask
+    dvar_pad = yPad(dvar_rho)
+    
+    #shift V points to rho grid
+    dvar_v = GridShift.Rho_to_Vpt(dvar_pad)
+    
+    #dy on rho points
+    dy = ma.array(np.repeat(1/np.array(RomsNC.variables['pn'][:])[np.newaxis, :, :], \
+                            var.shape[0], axis = 0), mask = Mask)
+        
+    #compute gradient on v
+    dvar_dy = dvar_v/dy
     
     return dvar_dy
     
 
-def z_grad(RomsFile, varname) :
+def z_grad(tstep, RomsFile, var) :
     """
-    Compute z-gradient assuming rectangular grid cells
+    Compute z-gradient on rho points
     """
     #load roms file
     RomsNC = nc4(RomsFile, 'r')
     
-    if type(varname) == str :
-        #load variable
-        var = RomsNC.variables[varname][:]
-        
-    else:
-        var = varname
+    #get Mask
+    Mask = ma.getmask(var)
     
-    #vertical difference
-    dvar_w = np.diff(var, n = 1, axis = 1)
+    #vertical difference of variable
+    dvar_w = ma.diff(var, n = 1, axis = 0)
     
-    #shift w points to rho points
+    #shift w points to rho points (padding in subroutine)
     dvar = GridShift.Wpt_to_Rho(dvar_w)
     
     #depth on w points
-    depth = dep._set_depth_T(RomsFile, None, 'w', \
-                             RomsNC.variables['h'], RomsNC.variables['zeta'])
+    depth = dep._set_depth(RomsFile, None, 'w', \
+                           RomsNC.variables['h'], \
+                           RomsNC.variables['zeta'][tstep, :, :])
+    
     
     #difference in depth on rho points
-    d_dep = np.diff(depth, n = 1, axis = 1)
+    d_dep = ma.array(np.diff(depth, n = 1, axis = 0), mask = Mask)
     
     #compute gradient
     dvar_dz = dvar/d_dep

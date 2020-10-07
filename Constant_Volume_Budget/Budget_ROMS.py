@@ -5,7 +5,7 @@ Created on Thu Jul 30 15:16:12 2020
 @author: Jasen
 """
 import os
-os.chdir('/Users/Jasen/Documents/GitHub/SalinityVarianceBudget/Constant_Volume_Budget/')
+os.chdir('/Users/Jasen/Documents/GitHub/SalinityVarianceBudget/Subroutines/')
 
 import numpy.ma as ma
 import Budget_Terms as bud

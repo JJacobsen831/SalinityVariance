@@ -12,7 +12,7 @@ import obs_depth_JJ as dep
 import GridShift_3D as GridShift
 import Mask_Tools as mt
 import Differential_Tstep as dff
-import Gradients as gr
+import Gradients_Tstep as gr
 
 def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
     """
@@ -152,21 +152,13 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     
     return AdvFlux
     
-def Diff_Flux(tstep, vprime2, Avg, AvgFile, GridFile, Masks, Areas) :
+def Diff_Flux(tstep, vprime2, Avg, Masks, Areas) :
     """
     Diffusive flux across CV boundaries
     """
-    #Shift from rho to u and v points
-    _var_u = GridShift.Rho_to_Upt(vprime2)
-    _var_v = GridShift.Rho_to_Vpt(vprime2)
-    
-    #apply mask that is shifted to u and v points to variance squared
-    var2_u = ma.array(_var_u, mask = Masks['U_Mask'])
-    var2_v = ma.array(_var_v, mask = Masks['V_Mask'])
-    
     #gradients of variance squared
-    dprime_u_dx = gr.x_grad_u(AvgFile, GridFile, var2_u)
-    dprime_v_dy = gr.y_grad_v(AvgFile, GridFile, var2_v)
+    dprime_u_dx = gr.x_grad_u(Avg, var2_u)
+    dprime_v_dy = gr.y_grad_v(Avg, var2_v)
     
     #apply face masks to gradients
     North_grad = ma.array(dprime_u_dx, mask = Masks['NFace'])
@@ -187,17 +179,14 @@ def Diff_Flux(tstep, vprime2, Avg, AvgFile, GridFile, Masks, Areas) :
     
     return DifFlux
 
-def Int_Mixing(tstep, vprime2, Avg, AvgFile, GridFile, Masks) :
+def Int_Mixing(tstep, vprime, Avg, AvgFile, Masks) :
     """
     Internal mixing within a control volume
     """
-    #compute gradients squared
-    xgrad = ma.array(gr.x_grad_rho(AvgFile, GridFile, vprime2), \
-                     mask = Masks['RhoMask'])
-    ygrad = ma.array(gr.y_grad_rho(AvgFile, GridFile, vprime2), \
-                     mask = Masks['RhoMask'])
-    zgrad = ma.array(gr.z_grad_rho(AvgFile, GridFile, vprime2), \
-                     mask = Masks['RhoMask'])
+    #compute square of gradients o squared
+    xgrad = gr.x_grad_rho(Avg, vprime)**2
+    ygrad = gr.y_grad_rho(Avg, vprime)**2
+    zgrad = gr.z_grad_rho(Avg, vprime)**2
     
     #vertical viscosity on w points
     _Kv_w = Avg.variables['Aks'][tstep, :, :, :]

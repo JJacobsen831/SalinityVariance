@@ -34,18 +34,23 @@ Areas = ebt.CellAreas(AvgFile, Avg, GridFile, Masks)
 #load time for steping
 time = Avg.variables['ocean_time'][:]
 
-##FOR Loop on time step
+#Prealocation 
 dsdt_dV = np.empty(time.shape)
-dsdt_dV.fill(np.isnan)
-AdvFlux = dsdt_dV
-DifFlux= dsdt_dV
-IntMix = dsdt_dV
+dsdt_dV.fill(np.nan)
+AdvFlux = np.empty(time.shape)
+AdvFlux.fill(np.nan)
+DifFlux = np.empty(time.shape)
+DifFlux.fill(np.nan)
+IntMix = np.empty(time.shape)
+DifFlux.fill(np.nan)
 
+##Loop on time step
 for t in range(time) :
     #compute variance at time step
     var = ma.array(Avg.variables['salt'][t, :, :, :], \
                    mask = Masks['RhoMask'])
-    v_prime2 = (var - var.mean())**2
+    v_prime = (var - var.mean())
+    v_prime2 = v_prime**2
     
     #time derivative of salinity variance squared
     dsdt_dV[t] = ebt.TimeDeriv(t, v_prime2, Hist, HistFile, Avg, AvgFile, \
@@ -55,9 +60,7 @@ for t in range(time) :
     AdvFlux[t] = ebt.Adv_Flux(t, v_prime2, Avg, Areas, Masks)
     
     #Diffusive Flux
-    DifFlux[t] = ebt.Diff_Flux(t, v_prime2, Avg, AvgFile, GridFile, Masks, Areas)
+    DifFlux[t] = ebt.Diff_Flux(t, v_prime2, Avg, Masks, Areas)
     
     #Internal Mixing
-    IntMix[t] = ebt.Int_Mixing(t, v_prime2, Avg, AvgFile, GridFile, Masks)
-    
-
+    IntMix[t] = ebt.Int_Mixing(t, v_prime, Avg, AvgFile, GridFile, Masks)
