@@ -6,14 +6,14 @@ Created on Fri Oct  2 14:37:16 2020
 """
 
 import os
-os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Subroutines/')
+os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Exact_Volume_Budget/')
 
 import obs_depth_JJ as dep
-import ROMS_Tools_Mask as rt
+import Mask_Tools as mt
 import numpy.ma as ma
 import numpy as np
 from netCDF4 import Dataset as nc4
-import Differential as dff
+import Differential_Tstep as dff
 
 #bounds of control volume
 latbounds = [37.193, 37.378]
@@ -32,7 +32,7 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 Grd = nc4('/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc', 'r')
 
 #create CV mask
-RhoMask2D = rt.RhoMask(Avg, latbounds, lonbounds)
+RhoMask2D = mt.RhoMask(Avg, latbounds, lonbounds)
 RhoMask = np.repeat(np.array(RhoMask2D)[np.newaxis, :, :], Avg.variables['salt'].shape[1], axis = 0)
 
 #load time for steping

@@ -11,7 +11,7 @@ import numpy as np
 import numpy.ma as ma
 from netCDF4 import Dataset as nc4
 import obs_depth_JJ as dep
-import GridShift3D as GridShift
+import GridShift_3D as GridShift
 
 #distance terms for gradients
 def xPad(Var) :

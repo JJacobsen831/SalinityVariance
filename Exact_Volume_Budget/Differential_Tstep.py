@@ -10,7 +10,7 @@ takes time step into account
 import numpy as np
 from netCDF4 import Dataset as nc4
 import obs_depth_JJ as dep
-import GridShft_3D as GridShift
+import GridShift_3D as GridShift
 
 def dV(tstep, RomsFile) :
     """ 
@@ -22,7 +22,7 @@ def dV(tstep, RomsFile) :
     #compute depth at w points
     depth_domain = dep._set_depth(RomsFile, None, 'w',\
                                     RomsNC.variables['h'][:],\
-                                    RomsNC.variables['zeta'][tstep, :, :, :])
+                                    RomsNC.variables['zeta'][tstep, :, :])
         
     dz = np.diff(depth_domain, n = 1, axis = 0)
             
@@ -37,7 +37,7 @@ def dV(tstep, RomsFile) :
     
     return DV
     
-def dA(tstep, RomsFile, RomsGrd) :
+def dA(tstep, RomsFile) :
     """
     Compute area of vertical grid cell faces 
     (Ax -> lat X depth, Ay -> lon X depth)
@@ -46,7 +46,7 @@ def dA(tstep, RomsFile, RomsGrd) :
     
     #depth at w points
     depth_w = dep._set_depth(RomsFile, None, 'w', RomsNC.variables['h'][:],\
-                               RomsNC.variables['zeta'][tstep, :, :, :])
+                               RomsNC.variables['zeta'][tstep, :, :])
     dz_rho = np.diff(depth_w, n = 1, axis = 0)
     
     #average depth at w points to u points
@@ -56,8 +56,12 @@ def dA(tstep, RomsFile, RomsGrd) :
     dz_v = GridShift.Rho_to_Vpt(dz_rho)
     
     #cell widths
-    dx = np.repeat(1/np.array(RomsNC.variables['pm'][:]), dz_rho.shape[0])
-    dy = np.repear(1/np.array(RomsNC.variables['pn'][:]), dz_rho.shape[0])
+    dx_rho = np.repeat(1/np.array(RomsNC.variables['pm'][:])[np.newaxis, :, :], dz_rho.shape[0], axis = 0)
+    dy_rho = np.repeat(1/np.array(RomsNC.variables['pn'][:])[np.newaxis, :, :], dz_rho.shape[0], axis = 0)
+    
+    #shift to u and v points
+    dy = GridShift.Rho_to_Upt(dy_rho)
+    dx = GridShift.Rho_to_Vpt(dx_rho)
     
     #Area of face with x-normal
     Ax_norm = dz_u*dy

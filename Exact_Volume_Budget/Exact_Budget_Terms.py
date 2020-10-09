@@ -20,15 +20,14 @@ def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
     """
     ndepth = Avg.variables['salt'].shape[1]
     
-    #define masks for u and v points
-    U_Mask = np.repeat(mt.UMask(AvgFile, latbounds, lonbounds, precision)[np.newaxis, :, :], \
-                       ndepth, axis = 0)
-        
-    V_Mask = np.repeat(mt.VMask(AvgFile, latbounds, lonbounds, precision)[np.newaxis, :, :], \
-                       ndepth, axis = 0)
-        
+    #U and V Masks
+    U_Mask = np.repeat(mt.UMask(Avg, latbounds, lonbounds, \
+                        precision)[np.newaxis, :, :], ndepth, axis = 0)
+    V_Mask = np.repeat(mt.VMask(Avg, latbounds, lonbounds, \
+                        precision)[np.newaxis, :, :], ndepth, axis = 0)
+    
     #Face Masks
-    NFace, WFace, SFace, EFace = mt.FaceMask(AvgFile, latbounds, lonbounds)
+    NFace, WFace, SFace, EFace = mt.FaceMask(Avg, latbounds, lonbounds, precision)
     NorthFace = np.repeat(NFace, ndepth, axis = 0)
     SouthFace = np.repeat(SFace, ndepth, axis = 0)
     WestFace = np.repeat(WFace, ndepth, axis = 0)
@@ -40,8 +39,8 @@ def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
     
     Masks = {
             'RhoMask':RhoMask,\
-            'Umask' : U_Mask, \
-            'Vmask' : V_Mask, \
+            'U_Mask' : U_Mask,\
+            'V_Mask' : V_Mask,\
             'NFace' : NorthFace, \
             'WFace' : WestFace, \
             'SFace' : SouthFace, \
@@ -50,15 +49,15 @@ def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
     
     return Masks
 
-def CellAreas(AvgFile, Avg, GridFile, Masks) :
+def CellAreas(tstep, AvgFile, Avg, Masks) :
     """
     Compute cell areas
     """
     #area of upward normal faces
-    Axy = dff.dA_top(Avg)
+    Axy = ma.array(dff.dA_top(Avg), mask = Masks['RhoMask'])
     
     #Areas of all cell faces
-    Ax_norm, Ay_norm = dff.dA(AvgFile, GridFile)
+    Ax_norm, Ay_norm = dff.dA(tstep, AvgFile)
     
     #subset areas to faces of CV
     Areas = {
@@ -108,11 +107,12 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     #compute volume
     dV = dA_xy*deltaA
     
-    Int_Sprime = ma.sum(2*vprime2*(var_rate - var/deltaA*dDelta_dt)*dV)
+    salt = ma.array(Avg.variables['salt'][tstep, :, :, :], mask = Masks['RhoMask'])
+    
+    Int_Sprime = ma.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)
     
     return Int_Sprime
     
-
 def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     """
     Compute advective fluxes through boundaries
@@ -157,8 +157,8 @@ def Diff_Flux(tstep, vprime2, Avg, Masks, Areas) :
     Diffusive flux across CV boundaries
     """
     #gradients of variance squared
-    dprime_u_dx = gr.x_grad_u(Avg, var2_u)
-    dprime_v_dy = gr.y_grad_v(Avg, var2_v)
+    dprime_u_dx = gr.x_grad_u(Avg, vprime2)
+    dprime_v_dy = gr.y_grad_v(Avg, vprime2)
     
     #apply face masks to gradients
     North_grad = ma.array(dprime_u_dx, mask = Masks['NFace'])
@@ -181,31 +181,23 @@ def Diff_Flux(tstep, vprime2, Avg, Masks, Areas) :
 
 def Int_Mixing(tstep, vprime, Avg, AvgFile, Masks) :
     """
-    Internal mixing within a control volume
+    Internal Mixing Term
     """
-    #compute square of gradients o squared
     xgrad = gr.x_grad_rho(Avg, vprime)**2
-    ygrad = gr.y_grad_rho(Avg, vprime)**2
-    zgrad = gr.z_grad_rho(Avg, vprime)**2
+    ygrad = gr.x_grad_rho(Avg, vprime)**2
+    zgrad = gr.z_grad(tstep, Avg, vprime)**2
     
-    #vertical viscosity on w points
-    _Kv_w = Avg.variables['Aks'][tstep, :, :, :]
+    kvw = Avg.variables['Aks'][tstep, :, :, :]
     
-    #shift to rho points
-    Kv = ma.array(GridShift.Wpt_to_Rho(_Kv_w), mask = Masks['RhoMask']
+    kv = ma.array(GridShift.Wpt_to_Rho(kvw), mask = Masks['RhoMask'])
+    kh = Avg.variables['nl_tnu2'][0]
     
-    #horizontal viscosity
-    Kh = Avg.variables['nl_tnu2'][0]
+    dV = ma.array(dff.dV(tstep, AvgFile), mask = Masks['RhoMask'])
     
-    #differential volume
-    dV = ma.array(df.dV(AvgFile), mask = Masks['RhoMask'])
+    xmix = 2*kh*xgrad
+    ymix = 2*kh*ygrad
+    zmix = 2*kv*zgrad
     
-    #integrad
-    x_m = 2*Kh*xgrad
-    y_m = 2*Kh*ygrad
-    z_m = 2*Kv*zgrad
-    
-    mixing = (ma.sum(x_m) + ma.sum(y_m) + ma.sum(z_m))*dV
+    mixing = (ma.sum(xmix) + ma.sum(ymix) + ma.sum(zmix))*dV
     
     return mixing
-    

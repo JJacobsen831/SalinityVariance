@@ -22,8 +22,8 @@ def RhoMask(RomsNC, latbounds, lonbounds) :
 
 def UMask(RomsNC, latbounds, lonbounds, precision) :
     """
-    Defines mask on U points
-    precision = number of decimals of longitude points
+    #Defines mask on U points
+    #precision = number of decimals of longitude points
     """
     #offset between rho and u points
     c_offset_u = np.round(RomsNC.variables['lon_u'][0,0] - RomsNC.variables['lon_rho'][0,0], decimals = precision)
@@ -35,10 +35,10 @@ def UMask(RomsNC, latbounds, lonbounds, precision) :
     return U_Mask
 
 def VMask(RomsNC, latbounds, lonbounds, precision) :
-    """
-    Defines mask on V points
-    precision = number of decimals of latitude points
-    """
+    
+    #Defines mask on V points
+    #precision = number of decimals of latitude points
+    
     #offset between rho and v points
     c_offset_v = np.round(RomsNC.variables['lat_v'][0, 0] - RomsNC.variables['lat_rho'][0,0], decimals = precision)
     
@@ -47,6 +47,7 @@ def VMask(RomsNC, latbounds, lonbounds, precision) :
     V_Mask = np.ma.asarray(np.invert(Vlats*Vlons))
     
     return V_Mask
+    
 
 def FaceMask(RomsNC, latbounds, lonbounds, precision) :
     """

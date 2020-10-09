@@ -5,7 +5,7 @@ Created on Mon Oct  5 15:49:58 2020
 @author: Jasen
 """
 import os
-os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Subroutines/')
+os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Exact_Volume_Budget/')
 
 from netCDF4 import Dataset as nc4
 import numpy as np
@@ -26,10 +26,7 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
 #create masks
-Masks = ebt.Flux_Masks(AvgFile, Avg, latbounds, lonbounds)
-
-#compute cell areas
-Areas = ebt.CellAreas(AvgFile, Avg, GridFile, Masks)
+Masks = ebt.Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision = 3)
 
 #load time for steping
 time = Avg.variables['ocean_time'][:]
@@ -44,20 +41,27 @@ DifFlux.fill(np.nan)
 IntMix = np.empty(time.shape)
 DifFlux.fill(np.nan)
 
+tstep = 0
+chk = Avg.variables['zeta'][1,:,:]
+RomsFile = AvgFile
+
+
 ##Loop on time step
 for t in range(time) :
     #compute variance at time step
-    var = ma.array(Avg.variables['salt'][t, :, :, :], \
+    var = ma.array(Avg.variables['salt'][tstep, :, :, :], \
                    mask = Masks['RhoMask'])
     v_prime = (var - var.mean())
-    v_prime2 = v_prime**2
+    v_prime2 = v_prime*v_prime
+    
+    #compute cell areas
+    Areas = ebt.CellAreas(tstep, AvgFile, Avg, Masks)
     
     #time derivative of salinity variance squared
-    dsdt_dV[t] = ebt.TimeDeriv(t, v_prime2, Hist, HistFile, Avg, AvgFile, \
-           Areas['Axy'], Masks)
+    dsdt_dV[tstep] = ebt.TimeDeriv(tstep, v_prime2, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
     
     #Advective flux
-    AdvFlux[t] = ebt.Adv_Flux(t, v_prime2, Avg, Areas, Masks)
+    AdvFlux[tstep] = ebt.Adv_Flux(tstep, v_prime2, Avg, Areas, Masks)
     
     #Diffusive Flux
     DifFlux[t] = ebt.Diff_Flux(t, v_prime2, Avg, Masks, Areas)
