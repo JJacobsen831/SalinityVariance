@@ -10,41 +10,33 @@ import numpy as np
 import numpy.ma as ma
 import obs_depth_JJ as dep
 import GridShift_3D as GridShift
-import Mask_Tools as mt
+import Manual_Mask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
 
-def Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision):
+def CreateMasks(RomsNC, latbounds, lonbounds) :
     """
-    Masks for fluxes across boundaries
+    define masks on rho, U, V points and along boundaries
+    returns dictionary of masks
     """
-    ndepth = Avg.variables['salt'].shape[1]
+    #index of control volume indices
+    RhoIdx = mt.NearestIndex(RomsNC, latbounds, lonbounds)
     
-    #U and V Masks
-    U_Mask = np.repeat(mt.UMask(Avg, latbounds, lonbounds, \
-                        precision)[np.newaxis, :, :], ndepth, axis = 0)
-    V_Mask = np.repeat(mt.VMask(Avg, latbounds, lonbounds, \
-                        precision)[np.newaxis, :, :], ndepth, axis = 0)
+    #mask on Rho, U, V points
+    Rmask = mt.RhoMask(RomsNC, RhoIdx)
+    Umask = GridShift.Rho_to_Upt(Rmask)
+    Vmask = GridShift.Rho_to_Vpt(Rmask)
     
-    #Face Masks
-    NFace, WFace, SFace, EFace = mt.FaceMask(Avg, latbounds, lonbounds, precision)
-    NorthFace = np.repeat(NFace, ndepth, axis = 0)
-    SouthFace = np.repeat(SFace, ndepth, axis = 0)
-    WestFace = np.repeat(WFace, ndepth, axis = 0)
-    EastFace = np.repeat(EFace, ndepth, axis = 0)
-    
-    #Control Volume Mask on Rho points
-    RhoMask = np.repeat(mt.RhoMask(Avg, latbounds, lonbounds)[np.newaxis, :, :], \
-                        ndepth, axis = 0)
+    NFace, WFace, SFace, EFace = mt.FaceMask(RomsNC, RhoIdx, Rmask)
     
     Masks = {
-            'RhoMask':RhoMask,\
-            'U_Mask' : U_Mask,\
-            'V_Mask' : V_Mask,\
-            'NFace' : NorthFace, \
-            'WFace' : WestFace, \
-            'SFace' : SouthFace, \
-            'EFace' : EastFace, 
+            'RhoMask':Rmask,\
+            'U_Mask' : Umask,\
+            'V_Mask' : Vmask,\
+            'NFace' : NFace, \
+            'WFace' : WFace, \
+            'SFace' : SFace, \
+            'EFace' : EFace, 
             }
     
     return Masks
