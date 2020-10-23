@@ -11,7 +11,7 @@ os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Exact_Volume_B
 from netCDF4 import Dataset as nc4
 import numpy as np
 import obs_depth_JJ as dep
-import GridShift_3D as GridShift
+import GridShift_2D as GridShift
 import Manual_Mask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
@@ -33,4 +33,9 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
 #variable
-salt = Avg.variables['salt']
+salt = Avg.variables['salt'][:]
+
+RomsNC = Avg
+
+#Masks
+Masks = CreateMasks(Avg, latbounds, lonbounds)

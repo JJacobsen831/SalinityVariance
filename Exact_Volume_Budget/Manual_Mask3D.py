@@ -5,14 +5,12 @@ Created on Mon Oct 19 13:00:07 2020
 Package to make face masks manually with 1s and 0s for a control volume.
 Includes masks for rho points, control volume edges on rho points.
 For faces on U and V points, a grid shift will be applied
-Computes each mask as 2D array (lat and lon), repeat over depth and time 
-after calling these subroutines
 
 @author: Jasen
 """
 
 import numpy as np
-import GridShift_2D as GridShift
+import GridShift_3D as GridShift
 
 def NearestIndex(RomsNC, latbounds, lonbounds) :
     """
@@ -32,31 +30,26 @@ def NearestIndex(RomsNC, latbounds, lonbounds) :
     dictionary of indices of control volume.
 
     """
-    
-    lat = RomsNC.variables['lat_rho'][:, 0]
-    lon = RomsNC.variables['lon_rho'][0, :]
-    
     #indices of latbounds
-    idx_lat0 = np.argmin(np.abs(lat - latbounds[0]))
+    idx_lat0 = np.argmin(np.abs(RomsNC.variables['lat_rho'][:, 0] - latbounds[0]))
     if idx_lat0.size > 1:
         idx_lat0 = idx_lat0[0]
     
-    idx_lat1 = np.argmin(np.abs(lat - latbounds[1]))
+    idx_lat1 = np.argmin(np.abs(RomsNC.variables['lat_rho'][:, 0] - latbounds[1]))
     if idx_lat1.size > 1:
         idx_lat1 = idx_lat1[0]
     
     #indices of lonbounds
-    idx_lon0 = np.argmin(np.abs(lon - lonbounds[0]))
+    idx_lon0 = np.argmin(np.abs(RomsNC.variables['lon_rho'][0, :] - lonbounds[0]))
     if idx_lon0.size > 1:
         idx_lon0 = idx_lon0[0]
     
-    idx_lon1 = np.argmin(np.abs(lon - lonbounds[1]))
+    idx_lon1 = np.argmin(np.abs(RomsNC.variables['lon_rho'][0, :] - lonbounds[1]))
     if idx_lon1.size > 1:
         idx_lon1 = idx_lon1[0]
     
     idx = {"lat0" : idx_lat0, "lat1" : idx_lat1, \
-           "lon0" : idx_lon0, "lon1" : idx_lon1, \
-           "lat_size" : lat.size, "lon_size" : lon.size}
+           "lon0" : idx_lon0, "lon1" : idx_lon1}
         
     return idx
 
@@ -71,13 +64,14 @@ def RhoMask(RomsNC, RhoIdx) :
 
     Returns
     -------
-    2D array (lat, lon) of ones within control volume and 0 for mask
+    3D array (depth, lat, lon) of ones within control volume and 0 for mask
 
     """
     #make array of zeros the same size as variable
-    Mask_Array = np.zeros((RhoIdx['lat_size'], RhoIdx['lon_size']))
+    A_shape = RomsNC.variables['salt'][:].shape
+    Mask_Array = np.zeros((A_shape[1], A_shape[2], A_shape[3]))
     
-    Mask_Array[RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
+    Mask_Array[:, RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
     
     return Mask_Array
 
@@ -103,28 +97,28 @@ def FaceMask(RomsNC, RhoIdx, MaskRho) :
     
     #north mask on rho points
     NorthRho = MaskRho
-    NorthRho[RhoIdx['lat1'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
+    NorthRho[:, RhoIdx['lat1'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
     
     #north mask on v points
     NorthV = GridShift.Rho_to_Vpt(NorthRho)
     
     #south mask on rho points
     SouthRho = MaskRho
-    SouthRho[RhoIdx['lat0'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
+    SouthRho[:, RhoIdx['lat0'], RhoIdx['lon0']:RhoIdx['lon1']] = 1
     
     #south mask on v points
     SouthV = GridShift.Rho_to_Vpt(SouthRho)
     
     #east mask on rho points
     EastRho = MaskRho
-    EastRho[RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon1']] = 1
+    EastRho[:, RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon1']] = 1
     
     #shift to u points
     EastU = GridShift.Rho_to_Upt(EastRho)
     
     #west mask on rho points
     WestRho = MaskRho
-    WestRho[RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon0']] = 1
+    WestRho[:, RhoIdx['lat0']:RhoIdx['lat1'], RhoIdx['lon0']] = 1
     
     #shift to v points
     WestU = GridShift.Rho_to_Upt(WestRho)

@@ -9,7 +9,7 @@ Exact budget subroutines compute each term at time step
 import numpy as np
 import numpy.ma as ma
 import obs_depth_JJ as dep
-import GridShift_3D as GridShift
+import GridShift_2D as GridShift
 import Manual_Mask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
