@@ -42,7 +42,7 @@ IntMix = np.empty(time.shape)
 DifFlux.fill(np.nan)
 
 tstep = 0
-chk = Avg.variables['zeta'][1,:,:]
+
 RomsFile = AvgFile
 
 
