@@ -7,27 +7,34 @@ Exact budget subroutines compute each term at time step
 @author: Jasen
 """
 import numpy as np
-import numpy.ma as ma
 import obs_depth_JJ as dep
-import GridShift_2D as GridShift
-import Manual_Mask as mt
+import GridShift_3D as GridShift
+import PolyMask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
 
-def CreateMasks(RomsNC, latbounds, lonbounds) :
+def CreateMasks(RomsNC, Vertices) :
     """
     define masks on rho, U, V points and along boundaries
     returns dictionary of masks
     """
-    #index of control volume indices
-    RhoIdx = mt.NearestIndex(RomsNC, latbounds, lonbounds)
+    #lats and lons
+    lats = RomsNC.variables['lat_rho'][:]
+    lons = RomsNC.variables['lon_rho'][:]
+    nz = RomsNC.variables['salt'][0,:,0,0].size    
     
-    #mask on Rho, U, V points
-    Rmask = mt.RhoMask(RomsNC, RhoIdx)
-    Umask = GridShift.Rho_to_Upt(Rmask)
-    Vmask = GridShift.Rho_to_Vpt(Rmask)
+    #mask on Rho, U, V points repeated over depth space
+    Rmask = np.repeat(mt.RhoMask(lats, lons, Vertices)[np.newaxis,:,:], nz, axis = 0)
+    Umask = np.array(GridShift.Rho_to_Upt(Rmask), dtype = bool)
+    Vmask = np.array(GridShift.Rho_to_Vpt(Rmask), dtype = bool)
     
-    NFace, WFace, SFace, EFace = mt.FaceMask(RomsNC, RhoIdx, Rmask)
+    #face masks
+    NFace, WFace, SFace, EFace = mt.FaceMask(Rmask)
+    
+    NFace = GridShift.Rho_to_Vpt(NFace)
+    SFace = GridShift.Rho_to_Vpt(SFace)
+    WFace = GridShift.Rho_to_Upt(WFace)
+    EFace = GridShift.Rho_to_Upt(EFace)
     
     Masks = {
             'RhoMask':Rmask,\
@@ -41,23 +48,23 @@ def CreateMasks(RomsNC, latbounds, lonbounds) :
     
     return Masks
 
-def CellAreas(tstep, AvgFile, Avg, Masks) :
+def CellAreas(tstep, depth, RomsNC, Masks) :
     """
     Compute cell areas
     """
     #area of upward normal faces
-    Axy = ma.array(dff.dA_top(Avg), mask = Masks['RhoMask'])
+    Axy = dff.dA_top(RomsNC)*Masks['RhoMask']
     
     #Areas of all cell faces
-    Ax_norm, Ay_norm = dff.dA(tstep, AvgFile)
+    Ax_norm, Ay_norm = dff.dA(tstep, RomsNC, depth)
     
     #subset areas to faces of CV
     Areas = {
             'Axy' : Axy, \
-            'North_Ay' : ma.array(Ay_norm, mask = Masks['NFace']), \
-            'West_Ax' : ma.array(Ax_norm, mask = Masks['WFace']), \
-            'South_Ay' : ma.array(Ay_norm, mask = Masks['SFace']), \
-            'East_Ax' : ma.array(Ax_norm, mask = Masks['EFace'])
+            'North_Ay' : Ay_norm*Masks['NFace'], \
+            'West_Ax' : Ax_norm*Masks['WFace'], \
+            'South_Ay' : Ay_norm*Masks['SFace'], \
+            'East_Ax' : Ax_norm*Masks['EFace']
             }
     
     return Areas
@@ -68,28 +75,24 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     Exact volume time derivative of variance squared
     """
     #change in vertical thickness of cell at average point
-    deltaA = ma.array(ma.diff(dep._set_depth(AvgFile, None, 'w', \
+    deltaA = np.diff(dep._set_depth(AvgFile, None, 'w', \
                                              Avg.variables['h'][:], \
                                              Avg.variables['zeta'][tstep,:,:]),
-                              n = 1, axis = 0), \
-                      mask = Masks['RhoMask'])
+                              n = 1, axis = 0)*Masks['RhoMask']
     
     #diagnostic rate
-    var_rate = ma.array(Diag.variables['salt_rate'][tstep, :, :, :], \
-                         mask = Masks['RhoMask'])
+    var_rate = Diag.variables['salt_rate'][tstep, :, :, :]*Masks['RhoMask']
     
     #change in vertical cell thickness at history points
-    deltaH0 = ma.array(ma.diff(dep._set_depth(HistFile, None, 'w', \
+    deltaH0 = np.diff(dep._set_depth(HistFile, None, 'w', \
                                              Hist.variables['h'][:], \
                                              Hist.variables['zeta'][tstep,:,:]),
-                              n = 1, axis = 0), \
-                      mask = Masks['RhoMask'])
+                              n = 1, axis = 0)*Masks['RhoMask']
     
-    deltaH1 = ma.array(ma.diff(dep._set_depth(HistFile, None, 'w', \
+    deltaH1 = np.diff(dep._set_depth(HistFile, None, 'w', \
                                              Hist.variables['h'][:], \
                                              Hist.variables['zeta'][tstep+1,:,:]),
-                              n = 1, axis = 0), \
-                      mask = Masks['RhoMask'])
+                              n = 1, axis = 0)*Masks['RhoMask']
     
     dtH = Hist.variables['ocean_time'][tstep+1] - Hist.variables['ocean_time'][tstep]
     
@@ -99,9 +102,9 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     #compute volume
     dV = dA_xy*deltaA
     
-    salt = ma.array(Avg.variables['salt'][tstep, :, :, :], mask = Masks['RhoMask'])
+    salt = Avg.variables['salt'][tstep, :, :, :]*Masks['RhoMask']
     
-    Int_Sprime = ma.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)
+    Int_Sprime = np.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)
     
     return Int_Sprime
     
@@ -109,29 +112,17 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     """
     Compute advective fluxes through boundaries
     """
-    #Shift from rho to u and v points
-    _var_u = GridShift.Rho_to_Upt(vprime2)
-    _var_v = GridShift.Rho_to_Vpt(vprime2)
-    
-    #apply mask that is shifted to u and v points to variance squared
-    var2_u = ma.array(_var_u, mask = Masks['U_Mask'])
-    var2_v = ma.array(_var_v, mask = Masks['V_Mask'])
-    
-    #apply face masks to variance squared
-    North_var = ma.array(var2_v, mask = Masks['NFace'])
-    South_var = ma.array(var2_v, mask = Masks['SFace'])
-    West_var = ma.array(var2_u, mask = Masks['WFace'])
-    East_var = ma.array(var2_u, mask = Masks['EFace'])
+    #Shift from rho to u and v points & apply face mask
+    West_var = GridShift.Rho_to_Upt(vprime2)*Masks['WFace']
+    East_var = GridShift.Rho_to_Upt(vprime2)*Masks['EFace']
+    North_var = GridShift.Rho_to_Vpt(vprime2)*Masks['NFace']
+    South_var = GridShift.Rho_to_Vpt(vprime2)*Masks['SFace']
     
     #velocities at faces oriented into CV
-    North_V = ma.array(-1*Avg.variables['v'][tstep, :, :, :], \
-                       mask =  Masks['NFace'])
-    West_U = ma.array(Avg.variables['u'][tstep, :, :, :], \
-                      mask = Masks['WFace'])
-    South_V = ma.array(Avg.variables['v'][tstep, :, :, :], \
-                       mask = Masks['SFace'])
-    East_U = ma.array(-1*Avg.variables['u'][tstep, :, :, :], \
-                      mask = Masks['EFace'])
+    North_V = -1*Avg.variables['v'][tstep, :, :, :]*Masks['NFace']
+    West_U = Avg.variables['u'][tstep, :, :, :]*Masks['WFace']
+    South_V = Avg.variables['v'][tstep, :, :, :]*Masks['SFace']
+    East_U = -1*Avg.variables['u'][tstep, :, :, :]*Masks['EFace']
     
     #Advective Fluxes through each boundary
     North = North_var*North_V*Areas['North_Ay']
@@ -140,7 +131,7 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     East = East_var*East_U*Areas['East_Ax']
     
     #sum (integrate) time step
-    AdvFlux = ma.sum(North) + ma.sum(West) + ma.sum(South) + ma.sum(East)
+    AdvFlux = np.sum(North) + np.sum(West) + np.sum(South) + np.sum(East)
     
     return AdvFlux
     

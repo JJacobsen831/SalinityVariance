@@ -10,6 +10,7 @@ takes time step into account
 import numpy as np
 from netCDF4 import Dataset as nc4
 import obs_depth_JJ as dep
+
 import GridShift_3D as GridShift
 
 def dV(tstep, RomsFile) :
@@ -37,22 +38,19 @@ def dV(tstep, RomsFile) :
     
     return DV
     
-def dA(tstep, RomsFile) :
+def dA(tstep, RomsNC, depth) :
     """
     Compute area of vertical grid cell faces 
     (Ax -> lat X depth, Ay -> lon X depth)
     """
-    RomsNC = nc4(RomsFile, 'r')
+        
+    #cell thickness at rho points
+    dz_rho = np.diff(depth, n = 1, axis = 0)
     
-    #depth at w points
-    depth_w = dep._set_depth(RomsFile, None, 'w', RomsNC.variables['h'][:],\
-                               RomsNC.variables['zeta'][tstep, :, :])
-    dz_rho = np.diff(depth_w, n = 1, axis = 0)
-    
-    #average depth at w points to u points
+    #average depth at rho points to u points
     dz_u = GridShift.Rho_to_Upt(dz_rho)
     
-    #average depth at w points to v points
+    #average depth at rho  points to v points
     dz_v = GridShift.Rho_to_Vpt(dz_rho)
     
     #cell widths

@@ -30,12 +30,12 @@ def RhoMask(Lats, Lons, Vertices) :
 
     """
     #reshape locations to N x 2 (lat x lon)
-    locs = np.transpose([np.resize(Lats, Lats.size), np.resize(Lons, Lons.size)])
+    locs = np.transpose(np.array([np.resize(Lats, Lats.size), np.resize(Lons, Lons.size)]))
     
     #create path based on supplied vertices
     p = path.Path(Vertices)
     
-    Pmask = np.resize(p.contains_points(locs), Lats.shape)
+    Pmask = np.resize(p.contains_points(locs, radius= -1e-2), Lats.shape)
     
     return Pmask
 

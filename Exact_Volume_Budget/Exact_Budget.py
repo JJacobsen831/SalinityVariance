@@ -9,12 +9,12 @@ os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Exact_Volume_B
 
 from netCDF4 import Dataset as nc4
 import numpy as np
-import numpy.ma as ma
 import Exact_Budget_Terms as ebt
+import obs_depth_JJ as dep
 
-#bounds of control volume
-latbounds = [37.193, 37.378]
-lonbounds = [-122.7, -122.456]
+#bounds of control volume (points in clockwise order)
+Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
+
 
 #load files
 FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
@@ -26,7 +26,7 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
 #create masks
-Masks = ebt.Flux_Masks(AvgFile, Avg, latbounds, lonbounds, precision = 3)
+Masks = ebt.CreateMasks(Avg, Vertices)
 
 #load time for steping
 time = Avg.variables['ocean_time'][:]
@@ -43,17 +43,25 @@ DifFlux.fill(np.nan)
 
 tstep = 0
 
-RomsFile = AvgFile
 
 
 ##Loop on time step
 for t in range(time) :
     #compute variance at time step
-    var = ma.array(Avg.variables['salt'][tstep, :, :, :], \
-                   mask = Masks['RhoMask'])
-    v_prime = (var - var.mean())
-    v_prime2 = v_prime*v_prime
+    var = Avg.variables['salt'][tstep, :, :, :]
     
+    #increase percision for multiplication
+    v_prime = np.array((var - var[Masks['RhoMask']].mean())*Masks['RhoMask'], dtype = np.float128)
+    
+    #then return to float 32
+    v_prime2 = np.array(v_prime*v_prime, dtype = np.float32)
+    v_prime = np.array(v_prime, dtype = np.float32)
+   
+    #compute depth at avg points and hist points
+    depthAvg = dep._set_depth(AvgFile, None, 'w',\
+                                    Avg.variables['h'][:],\
+                                    Avg.variables['zeta'][tstep, :, :])
+       
     #compute cell areas
     Areas = ebt.CellAreas(tstep, AvgFile, Avg, Masks)
     

@@ -12,23 +12,23 @@ from netCDF4 import Dataset as nc4
 import numpy as np
 import obs_depth_JJ as dep
 import GridShift_2D as GridShift
-import Manual_Mask as mt
+import PolyMask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
 
 #import numpy.ma as ma
-#import Exact_Budget_Terms as ebt
+#import Exact_Budget_Terms
 
 #bounds of control volume
-latbounds = [37.193, 37.378]
-lonbounds = [-122.7, -122.456]
+Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
 
 #load files
 FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
+AvgFile = FilePath + 'ocean_avg_2014_0005.nc'
+RomsNC = nc4(AvgFile, 'r')
+
 HistFile = FilePath + 'ocean_his_2014_0005.nc'
 Hist = nc4(HistFile, 'r')
-AvgFile = FilePath + 'ocean_avg_2014_0005.nc'
-Avg = nc4(AvgFile, 'r')
 Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
@@ -36,6 +36,8 @@ GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 salt = Avg.variables['salt'][:]
 
 RomsNC = Avg
+
+chk = lats*lats
 
 #Masks
 Masks = CreateMasks(Avg, latbounds, lonbounds)
