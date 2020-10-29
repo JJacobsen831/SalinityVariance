@@ -8,45 +8,24 @@ takes time step into account
 
 """
 import numpy as np
-from netCDF4 import Dataset as nc4
-import obs_depth_JJ as dep
-
 import GridShift_3D as GridShift
 
-def dV(tstep, RomsFile) :
+def dV(tstep, RomsFile, dx, dy, dz) :
     """ 
     Load roms grid at specific time step
     and computes differential volume of each cell
     """
-    RomsNC = nc4(RomsFile, 'r')
-   
-    #compute depth at w points
-    depth_domain = dep._set_depth(RomsFile, None, 'w',\
-                                    RomsNC.variables['h'][:],\
-                                    RomsNC.variables['zeta'][tstep, :, :])
-        
-    dz = np.diff(depth_domain, n = 1, axis = 0)
-            
-    #compute lengths of horizontal cell directions & repeat over depth space
-    dx = np.repeat(1/np.array(RomsNC.variables['pm'][:]), \
-                   dz.shape[0], axis = 0)
-    dy = np.repeat(1/np.array(RomsNC.variables['pn'][:]), \
-                   dz.shape[0], axis = 0)
     
     #compute differential volume of each cell
     DV = dx*dy*dz
     
     return DV
     
-def dA(tstep, RomsNC, depth) :
+def dA(tstep, RomsNC, dz_rho) :
     """
     Compute area of vertical grid cell faces 
     (Ax -> lat X depth, Ay -> lon X depth)
     """
-        
-    #cell thickness at rho points
-    dz_rho = np.diff(depth, n = 1, axis = 0)
-    
     #average depth at rho points to u points
     dz_u = GridShift.Rho_to_Upt(dz_rho)
     

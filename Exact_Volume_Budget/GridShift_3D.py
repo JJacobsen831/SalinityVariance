@@ -6,48 +6,76 @@ Created on Fri Aug  7 16:54:11 2020
 """
 import numpy as np
 
+def Upad(Upt_variable) :
+    """
+    Pad edges of array with copies of edges on x/u/dim2 edge
+    """
+    PadArray = np.concatenate((Upt_variable[:,:,0:1], Upt_variable,\
+                               Upt_variable[:,:,-2:-1]), axis = 2)
+    return PadArray
+    
+def Vpad(Vpt_variable) :
+    """
+    Pad edges of array with copys of edges on y/u/dim1 edge
+    """
+    PadArray = np.concatenate((Vpt_variable[:,0,1,:], Vpt_variable, \
+                               Vpt_variable[:,-2:-1,:]), axis = 1)
+    return PadArray
+
 
 def Upt_to_Rho(Upt_variable) :
     """
     Converts variables on u points to rho points
     """
-    if np.ma.is_masked(Upt_variable) == True :
-        
-        import numpy.ma as ma
-        
-    else:
-        
-        import numpy as ma
+    #copy edges before average
+    _pad = Upad(Upt_variable)
     
+    #average to rho points
+    RhoVar = 0.5*(_pad[:,:, 0:_pad.shape[2]-1] + \
+                _pad[:,:, 1:_pad.shape[2]])
     
-    _dx_pad = ma.concatenate((Upt_variable[:,:,0:1], Upt_variable,\
-                              Upt_variable[:,:,-2:-1]), axis = 2)
-    
-    d_x = 0.5*(_dx_pad[:,:, 0:_dx_pad.shape[3]-1] + \
-                _dx_pad[:,:, 1:_dx_pad.shape[3]])
-    
-    return d_x
+    return RhoVar
 
 def Vpt_to_Rho(Vpt_variable) :
     """
     Convert variable on v point to rho point
     """
+    #copy edges
+    _pad = Vpad(Vpt_variable)
     
-    d_y = 0.5*(Vpt_variable[:, 0:Vpt_variable.shape[1]-1, :] + \
-               Vpt_variable[:,1:Vpt_variable.shape[1], :])
+    #average to rho points
+    d_y = 0.5*(_pad[:, 0:_pad.shape[1]-1, :] + \
+               _pad[:,1:_pad.shape[1], :])
     
     return d_y
 
+
+def Rho_to_Upt(Rho_variable) :
+    """
+    Convert Rho point to U point
+    """
+    #horzontal average to U points
+    Upt = 0.5*(Rho_variable[:, :, 0:Rho_variable.shape[2]-1] + \
+                     Rho_variable[:, :, 1:Rho_variable.shape[2]])
+    
+    return Upt
+
+def Rho_to_Vpt(Rho_variable) :
+    """
+    Convert Rho point to V point
+    """
+    Vpt = 0.5*(Rho_variable[:, 0:Rho_variable.shape[1]-1, :] + \
+                           Rho_variable[:, 1:Rho_variable.shape[1], :])
+    
+    return Vpt
+
+    
 def Wpt_to_Rho(Wpt_variable) :
     """
     convert variable on w point to rho point
     """
-    if np.ma.is_masked(Wpt_variable) == True :
-        import numpy.ma as ma
-    else :
-        import numpy as ma
     
-    dvar_pad = ma.concatenate((Wpt_variable[0:1, :, :], Wpt_variable, \
+    dvar_pad = np.concatenate((Wpt_variable[0:1, :, :], Wpt_variable, \
                                Wpt_variable[-2:-1, :, :]), axis = 0)
     
     #average to rho points
@@ -96,24 +124,5 @@ def Wpt_to_Vpt(Wpt_variable) :
     #averagge points to V points
     Vpt = 0.5*(BoxVar[0:BoxVar.shape[1]-1, :, :] + \
                      BoxVar[1:BoxVar.shape[1], :, :])
-    
-    return Vpt
-
-def Rho_to_Upt(Rho_variable) :
-    """
-    Convert Rho point to U point
-    """
-    #horzontal average to U points
-    Upt = 0.5*(Rho_variable[:, :, 0:Rho_variable.shape[2]-1] + \
-                     Rho_variable[:, :, 1:Rho_variable.shape[2]])
-    
-    return Upt
-
-def Rho_to_Vpt(Rho_variable) :
-    """
-    Convert Rho point to V point
-    """
-    Vpt = 0.5*(Rho_variable[:, 0:Rho_variable.shape[1]-1, :] + \
-                           Rho_variable[:, 1:Rho_variable.shape[1], :])
     
     return Vpt

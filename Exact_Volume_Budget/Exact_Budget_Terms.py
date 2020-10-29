@@ -48,7 +48,7 @@ def CreateMasks(RomsNC, Vertices) :
     
     return Masks
 
-def CellAreas(tstep, depth, RomsNC, Masks) :
+def CellAreas(tstep, dz, RomsNC, Masks) :
     """
     Compute cell areas
     """
@@ -56,7 +56,7 @@ def CellAreas(tstep, depth, RomsNC, Masks) :
     Axy = dff.dA_top(RomsNC)*Masks['RhoMask']
     
     #Areas of all cell faces
-    Ax_norm, Ay_norm = dff.dA(tstep, RomsNC, depth)
+    Ax_norm, Ay_norm = dff.dA(tstep, RomsNC, dz)
     
     #subset areas to faces of CV
     Areas = {
@@ -135,19 +135,19 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     
     return AdvFlux
     
-def Diff_Flux(tstep, vprime2, Avg, Masks, Areas) :
+def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     """
     Diffusive flux across CV boundaries
     """
     #gradients of variance squared
-    dprime_u_dx = gr.x_grad_u(Avg, vprime2)
-    dprime_v_dy = gr.y_grad_v(Avg, vprime2)
+    dprime_u_dx = gr.x_grad_u(Avg, vprime2, dx, Masks)
+    dprime_v_dy = gr.y_grad_v(Avg, vprime2, dy, Masks)
     
     #apply face masks to gradients
-    North_grad = ma.array(dprime_u_dx, mask = Masks['NFace'])
-    West_grad = ma.array(dprime_v_dy, mask = Masks['WFace'])
-    South_grad = ma.array(dprime_v_dy, mask = Masks['SFace'])
-    East_grad = ma.array(dprime_u_dx, mask = Masks['EFace'])
+    North_grad = dprime_u_dx*Masks['NFace']
+    West_grad = dprime_v_dy*Masks['WFace']
+    South_grad = dprime_v_dy*Masks['SFace']
+    East_grad = dprime_u_dx*Masks['EFace']
     
     #horizontal diffustion coef
     Ks = Avg.variables['nl_tnu2'][0]
@@ -158,29 +158,29 @@ def Diff_Flux(tstep, vprime2, Avg, Masks, Areas) :
     South = Ks*South_grad*Areas['South_Ay']
     East = -1*Ks*East_grad*Areas['East_Ax']
     
-    DifFlux = ma.sum(North) + ma.sum(West) + ma.sum(South) + ma.sum(East)
+    DifFlux = np.sum(North) + np.sum(West) + np.sum(South) + np.sum(East)
     
     return DifFlux
 
-def Int_Mixing(tstep, vprime, Avg, AvgFile, Masks) :
+def Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks) :
     """
     Internal Mixing Term
     """
-    xgrad = gr.x_grad_rho(Avg, vprime)**2
-    ygrad = gr.x_grad_rho(Avg, vprime)**2
-    zgrad = gr.z_grad(tstep, Avg, vprime)**2
+    xgrad = gr.x_grad_rho(Avg, vprime, dx, Masks)**2
+    ygrad = gr.x_grad_rho(Avg, vprime, dy, Masks)**2
+    zgrad = gr.z_grad(tstep, vprime, dz, Masks)**2
     
-    kvw = Avg.variables['Aks'][tstep, :, :, :]
+    kvw = Avg.variables['AKs'][tstep, :, :, :]
     
-    kv = ma.array(GridShift.Wpt_to_Rho(kvw), mask = Masks['RhoMask'])
+    kv = GridShift.Wpt_to_Rho(kvw)
     kh = Avg.variables['nl_tnu2'][0]
     
-    dV = ma.array(dff.dV(tstep, AvgFile), mask = Masks['RhoMask'])
+    dV = dx*dy*dz*Masks['RhoMask']
     
     xmix = 2*kh*xgrad
     ymix = 2*kh*ygrad
     zmix = 2*kv*zgrad
     
-    mixing = (ma.sum(xmix) + ma.sum(ymix) + ma.sum(zmix))*dV
+    mixing = (np.sum(xmix) + np.sum(ymix) + np.sum(zmix))*dV
     
     return mixing

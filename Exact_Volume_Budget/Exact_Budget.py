@@ -31,6 +31,12 @@ Masks = ebt.CreateMasks(Avg, Vertices)
 #load time for steping
 time = Avg.variables['ocean_time'][:]
 
+#load dx and dy for gradients
+dx = np.repeat(1/np.array(Avg.variables['pm'][:])[np.newaxis, :, :], \
+               Avg.variables['salt'][0,:,0,0].size, axis = 0)
+dy = np.repeat(1/np.array(Avg.variables['pn'][:])[np.newaxis, :, :], \
+               Avg.variables['salt'][0,:,0,0].size, axis = 0)
+
 #Prealocation 
 dsdt_dV = np.empty(time.shape)
 dsdt_dV.fill(np.nan)
@@ -39,7 +45,7 @@ AdvFlux.fill(np.nan)
 DifFlux = np.empty(time.shape)
 DifFlux.fill(np.nan)
 IntMix = np.empty(time.shape)
-DifFlux.fill(np.nan)
+IntMix.fill(np.nan)
 
 tstep = 0
 
@@ -51,20 +57,21 @@ for t in range(time) :
     var = Avg.variables['salt'][tstep, :, :, :]
     
     #increase percision for multiplication
-    v_prime = np.array((var - var[Masks['RhoMask']].mean())*Masks['RhoMask'], dtype = np.float128)
+    v_prime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float128)
     
     #then return to float 32
-    v_prime2 = np.array(v_prime*v_prime, dtype = np.float32)
-    v_prime = np.array(v_prime, dtype = np.float32)
-   
-    #compute depth at avg points and hist points
-    depthAvg = dep._set_depth(AvgFile, None, 'w',\
-                                    Avg.variables['h'][:],\
-                                    Avg.variables['zeta'][tstep, :, :])
-       
-    #compute cell areas
-    Areas = ebt.CellAreas(tstep, AvgFile, Avg, Masks)
+    v_prime2 = np.array(v_prime*v_prime, dtype = np.float64)*Masks['RhoMask']
+    v_prime = np.array(v_prime, dtype = np.float64)*Masks['RhoMask']
     
+    #compute depth at averg points
+    dz = np.diff(dep._set_depth(AvgFile, None, 'w',\
+                                Avg.variables['h'][:],\
+                                Avg.variables['zeta'][tstep, :, :]), \
+                 n = 1, axis = 0)
+    
+    #compute cell areas
+    Areas = ebt.CellAreas(tstep, dz, Avg, Masks)
+        
     #time derivative of salinity variance squared
     dsdt_dV[tstep] = ebt.TimeDeriv(tstep, v_prime2, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
     
@@ -72,7 +79,7 @@ for t in range(time) :
     AdvFlux[tstep] = ebt.Adv_Flux(tstep, v_prime2, Avg, Areas, Masks)
     
     #Diffusive Flux
-    DifFlux[t] = ebt.Diff_Flux(t, v_prime2, Avg, Masks, Areas)
+    DifFlux[t] = ebt.Diff_Flux(v_prime2, Avg, dx, dy, Areas, Masks)
     
     #Internal Mixing
-    IntMix[t] = ebt.Int_Mixing(t, v_prime, Avg, AvgFile, GridFile, Masks)
+    IntMix[t] = ebt.Int_Mixing(tstep, v_prime, Avg, dx, dy, dz, Masks)
