@@ -13,6 +13,7 @@ def Upad(Upt_variable) :
     PadArray = np.concatenate((Upt_variable[:,:,0:1], Upt_variable,\
                                Upt_variable[:,:,-2:-1]), axis = 2)
     return PadArray
+
     
 def Vpad(Vpt_variable) :
     """
@@ -35,6 +36,7 @@ def Upt_to_Rho(Upt_variable) :
                 _pad[:,:, 1:_pad.shape[2]])
     
     return RhoVar
+
 
 def Vpt_to_Rho(Vpt_variable) :
     """
@@ -60,6 +62,7 @@ def Rho_to_Upt(Rho_variable) :
     
     return Upt
 
+
 def Rho_to_Vpt(Rho_variable) :
     """
     Convert Rho point to V point
@@ -83,19 +86,12 @@ def Wpt_to_Rho(Wpt_variable) :
                 dvar_pad[1:dvar_pad.shape[0], :, :])
     
     return d_z
-    
-    
-
+ 
 
 def Wpt_to_Upt(Wpt_variable) :
     """
     convert 'W-point' from vertical difference to U point
     """
-    if np.ma.is_masked(Wpt_variable) == True :
-        import numpy.ma as ma
-    else:
-        import numpy as ma
-    
     #horzontal average to box points (psi like points)
     BoxVar = 0.5*(Wpt_variable[:,:, 0:Wpt_variable.shape[3]-1] + \
                   Wpt_variable[:,:, 1:Wpt_variable.shape[3]])
@@ -111,11 +107,6 @@ def Wpt_to_Vpt(Wpt_variable) :
     """
     Convert W point variable to V point
     """
-    if np.ma.is_masked(Wpt_variable) == True :
-        import numpy.ma as ma
-    else:
-        import numpy as ma
-    
     #horizontal average to box points
     BoxVar = 0.5*(Wpt_variable[:, 0:Wpt_variable.shape[2]-1, :] + \
                            Wpt_variable[:, 1:Wpt_variable.shape[2], :])

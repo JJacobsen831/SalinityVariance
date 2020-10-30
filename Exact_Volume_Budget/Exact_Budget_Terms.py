@@ -24,17 +24,17 @@ def CreateMasks(RomsNC, Vertices) :
     nz = RomsNC.variables['salt'][0,:,0,0].size    
     
     #mask on Rho, U, V points repeated over depth space
-    Rmask = np.repeat(mt.RhoMask(lats, lons, Vertices)[np.newaxis,:,:], nz, axis = 0)
+    Rmask = np.array(np.repeat(mt.RhoMask(lats, lons, Vertices)[np.newaxis,:,:], nz, axis = 0), dtype = bool)
     Umask = np.array(GridShift.Rho_to_Upt(Rmask), dtype = bool)
     Vmask = np.array(GridShift.Rho_to_Vpt(Rmask), dtype = bool)
     
     #face masks
     NFace, WFace, SFace, EFace = mt.FaceMask(Rmask)
     
-    NFace = GridShift.Rho_to_Vpt(NFace)
-    SFace = GridShift.Rho_to_Vpt(SFace)
-    WFace = GridShift.Rho_to_Upt(WFace)
-    EFace = GridShift.Rho_to_Upt(EFace)
+    NFace = np.array(GridShift.Rho_to_Vpt(NFace), dtype = bool)
+    SFace = np.array(GridShift.Rho_to_Vpt(SFace), dtype = bool)
+    WFace = np.array(GridShift.Rho_to_Upt(WFace), dtype = bool)
+    EFace = np.array(GridShift.Rho_to_Upt(EFace), dtype = bool)
     
     Masks = {
             'RhoMask':Rmask,\
@@ -78,7 +78,7 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     deltaA = np.diff(dep._set_depth(AvgFile, None, 'w', \
                                              Avg.variables['h'][:], \
                                              Avg.variables['zeta'][tstep,:,:]),
-                              n = 1, axis = 0)*Masks['RhoMask']
+                              n = 1, axis = 0)
     
     #diagnostic rate
     var_rate = Diag.variables['salt_rate'][tstep, :, :, :]*Masks['RhoMask']
@@ -104,7 +104,7 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     
     salt = Avg.variables['salt'][tstep, :, :, :]*Masks['RhoMask']
     
-    Int_Sprime = np.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)
+    Int_Sprime = np.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)*Masks['RhoMask']
     
     return Int_Sprime
     

@@ -59,9 +59,9 @@ for t in range(time) :
     #increase percision for multiplication
     v_prime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float128)
     
-    #then return to float 32
-    v_prime2 = np.array(v_prime*v_prime, dtype = np.float64)*Masks['RhoMask']
-    v_prime = np.array(v_prime, dtype = np.float64)*Masks['RhoMask']
+    #then return to float 32 -> DON'T APPLY MASK, do after calc
+    v_prime2 = np.array(v_prime*v_prime, dtype = np.float64)
+    v_prime = np.array(v_prime, dtype = np.float64)
     
     #compute depth at averg points
     dz = np.diff(dep._set_depth(AvgFile, None, 'w',\

@@ -64,7 +64,7 @@ def y_grad_v(RomsNC, var, dy, Masks):
     Compute y-gradient on v points that are shifted to rho grid
     """
     #gradient on v points
-    dvar_v = ma.diff(var, n = 1, axis = 1)
+    dvar_v = ma.diff(var, n = 1, axis = 1)*Masks['V_Masks']
     
     #shift V points to rho grid
     dy_v = GridShift.Rho_to_Vpt(dy)
