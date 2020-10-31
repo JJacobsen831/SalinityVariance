@@ -13,8 +13,8 @@ import Exact_Budget_Terms as ebt
 import obs_depth_JJ as dep
 
 #bounds of control volume (points in clockwise order)
-Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
-
+#Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
+Vertices = np.array([[35.7, -124.215], [35.7, -124.0], [35.8, -124.0], [35.8, -124.215]])
 
 #load files
 FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
@@ -57,12 +57,11 @@ for t in range(time) :
     var = Avg.variables['salt'][tstep, :, :, :]
     
     #increase percision for multiplication
-    v_prime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float128)
+    vprime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float64)
     
     #then return to float 32 -> DON'T APPLY MASK, do after calc
-    v_prime2 = np.array(v_prime*v_prime, dtype = np.float64)
-    v_prime = np.array(v_prime, dtype = np.float64)
-    
+    vprime2 = np.array(vprime*vprime, dtype = np.float64)
+        
     #compute depth at averg points
     dz = np.diff(dep._set_depth(AvgFile, None, 'w',\
                                 Avg.variables['h'][:],\
@@ -73,13 +72,13 @@ for t in range(time) :
     Areas = ebt.CellAreas(tstep, dz, Avg, Masks)
         
     #time derivative of salinity variance squared
-    dsdt_dV[tstep] = ebt.TimeDeriv(tstep, v_prime2, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
+    dsdt_dV[tstep] = ebt.TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
     
     #Advective flux
-    AdvFlux[tstep] = ebt.Adv_Flux(tstep, v_prime2, Avg, Areas, Masks)
+    AdvFlux[tstep] = ebt.Adv_Flux(tstep, vprime2, Avg, Areas, Masks)
     
     #Diffusive Flux
-    DifFlux[t] = ebt.Diff_Flux(v_prime2, Avg, dx, dy, Areas, Masks)
+    DifFlux[tstep] = ebt.Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks)
     
     #Internal Mixing
-    IntMix[t] = ebt.Int_Mixing(tstep, v_prime, Avg, dx, dy, dz, Masks)
+    IntMix[tstep] = ebt.Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks)

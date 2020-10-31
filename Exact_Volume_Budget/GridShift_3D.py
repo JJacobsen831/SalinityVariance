@@ -19,10 +19,18 @@ def Vpad(Vpt_variable) :
     """
     Pad edges of array with copys of edges on y/u/dim1 edge
     """
-    PadArray = np.concatenate((Vpt_variable[:,0,1,:], Vpt_variable, \
+    PadArray = np.concatenate((Vpt_variable[:,0:1,:], Vpt_variable, \
                                Vpt_variable[:,-2:-1,:]), axis = 1)
     return PadArray
 
+
+def Wpad(Wpt_variable) :
+    """
+    Pad edges of array with copies of edges on z/w/dim0 edge
+    """
+    PadArray = np.concatenate((Wpt_variable[0:1,:,:], Wpt_variable, \
+                               Wpt_variable[-2:-1,:,:]), axis = 0)
+    return PadArray
 
 def Upt_to_Rho(Upt_variable) :
     """
@@ -77,16 +85,22 @@ def Wpt_to_Rho(Wpt_variable) :
     """
     convert variable on w point to rho point
     """
-    
-    dvar_pad = np.concatenate((Wpt_variable[0:1, :, :], Wpt_variable, \
-                               Wpt_variable[-2:-1, :, :]), axis = 0)
-    
     #average to rho points
-    d_z = 0.5*(dvar_pad[0:dvar_pad.shape[0]-1,:, :] + \
-                dvar_pad[1:dvar_pad.shape[0], :, :])
+    d_z = 0.5*(Wpt_variable[0:Wpt_variable.shape[0]-1,:, :] + \
+                Wpt_variable[1:Wpt_variable.shape[0], :, :])
     
     return d_z
- 
+
+def Wpt_to_Rho_pad(Wpt_variable) :
+    """
+    Convert variable on w points with pad to maintain dimension size
+    """
+    _pad = Wpad(Wpt_variable)
+    
+    RhoPt = Wpt_to_Rho(_pad)
+    
+    return RhoPt
+    
 
 def Wpt_to_Upt(Wpt_variable) :
     """

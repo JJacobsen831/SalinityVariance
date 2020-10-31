@@ -70,7 +70,7 @@ def CellAreas(tstep, dz, RomsNC, Masks) :
     return Areas
 
 
-def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
+def TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     """
     Exact volume time derivative of variance squared
     """
@@ -104,7 +104,7 @@ def TimeDeriv(tstep, vprime2, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     
     salt = Avg.variables['salt'][tstep, :, :, :]*Masks['RhoMask']
     
-    Int_Sprime = np.sum(2*vprime2*(var_rate - salt/deltaA*dDelta_dt)*dV)*Masks['RhoMask']
+    Int_Sprime = np.sum(2*vprime*(var_rate - (salt/deltaA)*dDelta_dt)*dV)
     
     return Int_Sprime
     
@@ -140,12 +140,13 @@ def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     Diffusive flux across CV boundaries
     """
     #gradients of variance squared
-    dprime_u_dx = gr.x_grad_u(Avg, vprime2, dx, Masks)
-    dprime_v_dy = gr.y_grad_v(Avg, vprime2, dy, Masks)
+    dprime_u_dx = gr.x_grad_u(Avg, vprime2, dx)
+    dprime_v_dy = gr.y_grad_v(Avg, vprime2, dy)
     
     #apply face masks to gradients
-    North_grad = dprime_u_dx*Masks['NFace']
-    West_grad = dprime_v_dy*Masks['WFace']
+    North_grad = dprime_v_dy*Masks['NFace']
+    West_grad = dprime_u_dx*Masks['WFace']
+    
     South_grad = dprime_v_dy*Masks['SFace']
     East_grad = dprime_u_dx*Masks['EFace']
     
@@ -166,21 +167,21 @@ def Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks) :
     """
     Internal Mixing Term
     """
-    xgrad = gr.x_grad_rho(Avg, vprime, dx, Masks)**2
-    ygrad = gr.x_grad_rho(Avg, vprime, dy, Masks)**2
-    zgrad = gr.z_grad(tstep, vprime, dz, Masks)**2
+    xgrad = gr.x_grad_rho(Avg, vprime, dx)**2 
+    ygrad = gr.x_grad_rho(Avg, vprime, dy)**2
+    zgrad = gr.z_grad(tstep, vprime, dz)**2
     
     kvw = Avg.variables['AKs'][tstep, :, :, :]
     
     kv = GridShift.Wpt_to_Rho(kvw)
     kh = Avg.variables['nl_tnu2'][0]
     
-    dV = dx*dy*dz*Masks['RhoMask']
+    dV = dx*dy*dz
     
-    xmix = 2*kh*xgrad
-    ymix = 2*kh*ygrad
-    zmix = 2*kv*zgrad
+    xmix = 2*kh*xgrad*Masks['RhoMask']*dV
+    ymix = 2*kh*ygrad*Masks['RhoMask']*dV
+    zmix = 2*kv*zgrad*Masks['RhoMask']*dV
     
-    mixing = (np.sum(xmix) + np.sum(ymix) + np.sum(zmix))*dV
+    mixing = np.sum(xmix) + np.sum(ymix) + np.sum(zmix)
     
     return mixing

@@ -19,6 +19,9 @@ import Gradients_Tstep as gr
 #import numpy.ma as ma
 #import Exact_Budget_Terms
 
+lat = Avg.variables['lat_rho'][:]
+lon = Avg.variables['lon_rho'][:]
+
 #bounds of control volume
 Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
 
@@ -37,7 +40,44 @@ salt = Avg.variables['salt'][:]
 
 RomsNC = Avg
 
-chk = lats*lats
+chk = np.diff(v_prime2, n =1 , axis = 2)
+Wpt_variable = dvar_w
 
 #Masks
 Masks = CreateMasks(Avg, latbounds, lonbounds)
+
+chk = DifFlux[0]+IntMix[0]+dsdt_dV[0]
+dxx = dx[:,1:,:]
+chk =dxx[Masks['NFace']]
+vprime2 = v_prime2
+
+
+def FaceMask(Lats, Lons, Vertices) :
+    """
+    Create mask on rho points based on vertices
+
+    Parameters
+    ----------
+    Lats : array
+        nlat by nlon array of latitudes
+    Lons : array
+        nlat by nlon array of longitudes.
+    Vertices : array 
+        N x 2 (lat, lon) of vertices of control volume.
+
+    Returns 
+    -------
+    Boolian array outlining control volume on rho points
+
+    """
+    #reshape locations to N x 2 (lat x lon)
+    locs = np.transpose(np.array([np.resize(Lats, Lats.size), np.resize(Lons, Lons.size)]))
+    
+    code = [path.Path.MOVETO, path.Path.LINETO, path.Path.LINETO]
+    
+    Npath = path.Path(np.array((Vertices[3], Vertices[2], Vertices[3])),code, closed = True)
+    
+    Pmask = np.resize(Npath.contains_points(locs, radius= 1e1), Lats.shape)
+    chk = Lats[Pmask]    
+    
+    return Pmask

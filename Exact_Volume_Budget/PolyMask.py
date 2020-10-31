@@ -39,7 +39,7 @@ def RhoMask(Lats, Lons, Vertices) :
     
     return Pmask
 
-def FaceMask(RhoMask) :
+def FaceMask_shift(RhoMask) :
     """
     Shift rho mask to locate north, west, south, east faces of control volume
 
@@ -76,3 +76,34 @@ def FaceMask(RhoMask) :
                             np.logical_and(left == True, right == False)), axis = 1)
     
     return Nmask, Wmask, Smask, Emask
+    
+    
+def FaceMask(Lats, Lons, Vertices) :
+    """
+    Create mask on rho points based on vertices
+
+    Parameters
+    ----------
+    Lats : array
+        nlat by nlon array of latitudes
+    Lons : array
+        nlat by nlon array of longitudes.
+    Vertices : array 
+        N x 2 (lat, lon) of vertices of control volume.
+
+    Returns 
+    -------
+    Boolian array outlining control volume on rho points
+
+    """
+    #reshape locations to N x 2 (lat x lon)
+    locs = np.transpose(np.array([np.resize(Lats, Lats.size), np.resize(Lons, Lons.size)]))
+    
+    code = [path.Path.MOVETO, path.Path.LINETO, path.Path.LINETO]
+    
+    Npath = path.Path(np.array((Vertices[3], Vertices[2], Vertices[3])),code, closed = True)
+    
+    Pmask = np.resize(Npath.contains_points(locs, radius= 1e1), Lats.shape)
+    chk = Lats[Pmask]    
+    
+    return Pmask
