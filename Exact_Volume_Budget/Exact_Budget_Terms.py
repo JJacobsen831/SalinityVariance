@@ -53,7 +53,9 @@ def CellAreas(dx, dy, dz, Masks) :
     Compute cell areas
     """
     #area of upward normal faces
-    Axy = np.repeat(dx*dy[np.newaxis, :,:], dz.shape[0], axis = 0)
+    dx_mask = dx*Masks['RhoMask']
+    dy_mask = dy*Masks['RhoMask']
+    Axy =dx_mask*dy_mask
     
     #Areas of all cell faces
     Ax_norm, Ay_norm = dff.dA_norm(dx, dy, dz)
