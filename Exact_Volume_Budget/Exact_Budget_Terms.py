@@ -25,16 +25,16 @@ def CreateMasks(RomsNC, Vertices) :
     
     #mask on Rho, U, V points repeated over depth space
     Rmask = np.array(np.repeat(mt.RhoMask(lats, lons, Vertices)[np.newaxis,:,:], nz, axis = 0), dtype = bool)
-    Umask = np.array(GridShift.Rho_to_Upt(Rmask), dtype = bool)
-    Vmask = np.array(GridShift.Rho_to_Vpt(Rmask), dtype = bool)
+    Umask = np.array(GridShift.Bool_Rho_to_Upt(Rmask), dtype = bool)
+    Vmask = np.array(GridShift.Bool_Rho_to_Vpt(Rmask), dtype = bool)
     
     #face masks
-    NFace, WFace, SFace, EFace = mt.FaceMask(Rmask)
+    NFace, WFace, SFace, EFace = mt.FaceMask_shift3D(Rmask)
     
-    NFace = np.array(GridShift.Rho_to_Vpt(NFace), dtype = bool)
-    SFace = np.array(GridShift.Rho_to_Vpt(SFace), dtype = bool)
-    WFace = np.array(GridShift.Rho_to_Upt(WFace), dtype = bool)
-    EFace = np.array(GridShift.Rho_to_Upt(EFace), dtype = bool)
+    NFace = np.array(GridShift.Bool_Rho_to_Vpt(NFace), dtype = bool)
+    SFace = np.array(GridShift.Bool_Rho_to_Vpt(SFace), dtype = bool)
+    WFace = np.array(GridShift.Bool_Rho_to_Upt(WFace), dtype = bool)
+    EFace = np.array(GridShift.Bool_Rho_to_Upt(EFace), dtype = bool)
     
     Masks = {
             'RhoMask':Rmask,\
@@ -48,15 +48,15 @@ def CreateMasks(RomsNC, Vertices) :
     
     return Masks
 
-def CellAreas(tstep, dz, RomsNC, Masks) :
+def CellAreas(dx, dy, dz, Masks) :
     """
     Compute cell areas
     """
     #area of upward normal faces
-    Axy = dff.dA_top(RomsNC)*Masks['RhoMask']
+    Axy = np.repeat(dx*dy[np.newaxis, :,:], dz.shape[0], axis = 0)
     
     #Areas of all cell faces
-    Ax_norm, Ay_norm = dff.dA(tstep, RomsNC, dz)
+    Ax_norm, Ay_norm = dff.dA_norm(dx, dy, dz)
     
     #subset areas to faces of CV
     Areas = {

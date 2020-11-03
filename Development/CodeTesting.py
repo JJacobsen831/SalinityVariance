@@ -11,7 +11,7 @@ os.chdir('/home/jjacob2/python/Salt_Budget/SalinityVarianceBudget/Exact_Volume_B
 from netCDF4 import Dataset as nc4
 import numpy as np
 import obs_depth_JJ as dep
-import GridShift_2D as GridShift
+import GridShift_3D as GridShift
 import PolyMask as mt
 import Differential_Tstep as dff
 import Gradients_Tstep as gr
@@ -36,10 +36,11 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
 #variable
-salt = Avg.variables['salt'][:]
+salt = Avg.variables['salt'][0,:,:,:]
 
 RomsNC = Avg
 
+RhoMask = Masks['RhoMask']
 chk = np.diff(v_prime2, n =1 , axis = 2)
 Wpt_variable = dvar_w
 
@@ -50,6 +51,11 @@ chk = DifFlux[0]+IntMix[0]+dsdt_dV[0]
 dxx = dx[:,1:,:]
 chk =dxx[Masks['NFace']]
 vprime2 = v_prime2
+
+
+chkv0 = np.array([[1, 2, 3], [1,2,3], [1,2,3]])
+chkv0 = np.repeat(chkv0[np.newaxis, :,:], 1, axis = 0)
+chk = GridShift.Rho_to_Upt(chkv0)
 
 
 def FaceMask(Lats, Lons, Vertices) :

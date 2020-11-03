@@ -35,11 +35,11 @@ def RhoMask(Lats, Lons, Vertices) :
     #create path based on supplied vertices
     p = path.Path(Vertices)
     
-    Pmask = np.resize(p.contains_points(locs, radius= -1e-2), Lats.shape)
+    RhoMask = np.resize(p.contains_points(locs, radius= -1e-2), Lats.shape)
     
-    return Pmask
+    return RhoMask
 
-def FaceMask_shift(RhoMask) :
+def FaceMask_shift3D(RhoMask) :
     """
     Shift rho mask to locate north, west, south, east faces of control volume
 
@@ -54,26 +54,26 @@ def FaceMask_shift(RhoMask) :
 
     """
     #shift mask
-    dwn = RhoMask[1:, :]
-    up = RhoMask[:-1, :]
-    left = RhoMask[:,1:]
-    right= RhoMask[:,:-1]
+    dwn = RhoMask[:, 1:, :]
+    up = RhoMask[:, :-1, :]
+    left = RhoMask[:, :, 1:]
+    right= RhoMask[:, :, :-1]
     
     #south mask
-    Smask = np.concatenate((RhoMask[0:1,:], \
-                            np.logical_and(dwn == True, up == False)))
+    Smask = np.concatenate((RhoMask[:, 0:1,:], \
+                            np.logical_and(dwn == True, up == False)), axis = 1)
     
     #north mask
     Nmask = np.concatenate((np.logical_and(up == True, dwn == False), \
-                            RhoMask[-2:-1, :]))
+                            RhoMask[:, -2:-1, :]), axis = 1)
     
     #east mask
     Emask = np.concatenate((np.logical_and(right == True, left == False), \
-                            RhoMask[:, -2:-1]), axis = 1)
+                            RhoMask[:, :, -2:-1]), axis = 2)
     
     #west mask
-    Wmask = np.concatenate((RhoMask[:,0:1], \
-                            np.logical_and(left == True, right == False)), axis = 1)
+    Wmask = np.concatenate((RhoMask[:, :,0:1], \
+                            np.logical_and(left == True, right == False)), axis = 2)
     
     return Nmask, Wmask, Smask, Emask
     

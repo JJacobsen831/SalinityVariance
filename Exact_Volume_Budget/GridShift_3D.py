@@ -131,3 +131,19 @@ def Wpt_to_Vpt(Wpt_variable) :
                      BoxVar[1:BoxVar.shape[1], :, :])
     
     return Vpt
+
+def Bool_Rho_to_Vpt(RhoVar) :
+    """
+    Shift boolean array from Rho to U points
+    """
+    Upt = RhoVar[:,1:,:]
+    
+    return Upt
+    
+def Bool_Rho_to_Upt(RhoVar) :
+    """
+    Shift boolean array form Rho to V point
+    """    
+    Vpt = RhoVar[:,:, 1:]
+    
+    return Vpt

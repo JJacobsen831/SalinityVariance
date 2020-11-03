@@ -69,7 +69,7 @@ for t in range(time) :
                  n = 1, axis = 0)
     
     #compute cell areas
-    Areas = ebt.CellAreas(tstep, dz, Avg, Masks)
+    Areas = ebt.CellAreas(dx, dy, dz, Masks)
         
     #time derivative of salinity variance squared
     dsdt_dV[tstep] = ebt.TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
