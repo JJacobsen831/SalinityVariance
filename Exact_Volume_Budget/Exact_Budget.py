@@ -14,8 +14,9 @@ import obs_depth_JJ as dep
 import matplotlib.pyplot as plt
 
 #bounds of control volume (points in clockwise order)
-Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
+#Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
 #Vertices = np.array([[35.7, -124.215], [35.7, -124.0], [35.8, -124.0], [35.8, -124.215]])
+
 
 #load files
 FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
@@ -24,7 +25,13 @@ Hist = nc4(HistFile, 'r')
 AvgFile = FilePath + 'ocean_avg_2014_0005.nc'
 Avg = nc4(AvgFile, 'r')
 Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
-GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
+#GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
+
+#Carmel Bay
+#Vertices = np.array([[36.570, -121.963], [36.570, -121.922], [36.519, -121.922], [36.519, -121.963]])
+
+#Monterey Bay
+Vertices = np.array([[36.585, -121.976], [36.585, -121.784], [36.981, -121.784], [36.981, -121.976]])
 
 #create masks
 Masks = ebt.CreateMasks(Avg, Vertices)
@@ -54,7 +61,7 @@ for tstep in range(time.shape[0]) :
     var = Avg.variables['salt'][tstep, :, :, :]
     
     #increase percision for multiplication
-    vprime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float64)
+    vprime = np.array((var - var[Masks['RhoMask']].mean()), dtype = np.float64)*Masks['LandMask']
     
     #then return to float 32 -> DON'T APPLY MASK, do after calc
     vprime2 = np.array(vprime*vprime, dtype = np.float64)
@@ -72,16 +79,16 @@ for tstep in range(time.shape[0]) :
     dsdt_dV[tstep] = ebt.TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
     
     #Advective flux
-    AdvFlux[tstep] = ebt.Adv_Flux(tstep, vprime2, Avg, Areas, Masks)
+    AdvFlux[tstep] = ebt.Adv_Flux_west(tstep, vprime2, Avg, Areas, Masks)
     
     #Diffusive Flux
-    DifFlux[tstep] = ebt.Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks)
+    DifFlux[tstep] = ebt.Diff_Flux_west(Avg, vprime2, dx, Areas, Masks)
     
     #Internal Mixing
     IntMix[tstep] = ebt.Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks)
 
 #plotting
-Total = dsdt_dV - AdvFlux + DifFlux - IntMix
+Total = dsdt_dV + AdvFlux - DifFlux + IntMix
 
 line0, = plt.plot(dsdt_dV, label = 'd/dt')
 line1, = plt.plot(AdvFlux, label = 'Advective Flux')
@@ -89,4 +96,5 @@ line2, = plt.plot(DifFlux, label = 'Diffusive Flux')
 line3, = plt.plot(IntMix, label = 'Internal Mixing')
 line4, = plt.plot(Total, label = 'Sum of Terms')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-plt.savefig('ExactBudget_Coastal_03Nov2020')
+plt.title('Monterey Bay Salinity Variance Budget')
+#plt.savefig('ExactBudget_Coastal_03Nov2020')

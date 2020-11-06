@@ -21,7 +21,14 @@ def CreateMasks(RomsNC, Vertices) :
     #lats and lons
     lats = RomsNC.variables['lat_rho'][:]
     lons = RomsNC.variables['lon_rho'][:]
-    nz = RomsNC.variables['salt'][0,:,0,0].size    
+    
+    #variable
+    salt = RomsNC.variables['salt'][0,:,:,:]
+    nz = salt.shape[0]
+    
+    #land mask
+    land = np.invert(np.ma.getmask(salt))
+    
     
     #mask on Rho, U, V points repeated over depth space
     Rmask = np.array(np.repeat(mt.RhoMask(lats, lons, Vertices)[np.newaxis,:,:], nz, axis = 0), dtype = bool)
@@ -31,11 +38,21 @@ def CreateMasks(RomsNC, Vertices) :
     #face masks
     NFace, WFace, SFace, EFace = mt.FaceMask_shift3D(Rmask)
     
+    #intersection of land mask and face mask
+    NFace = np.logical_and(NFace, land)
+    WFace = np.logical_and(WFace, land)
+    SFace = np.logical_and(SFace, land)
+    EFace = np.logical_and(EFace, land)
+    
+    #shift to U or V
     NFace = np.array(GridShift.Bool_Rho_to_Vpt(NFace), dtype = bool)
     SFace = np.array(GridShift.Bool_Rho_to_Vpt(SFace), dtype = bool)
     WFace = np.array(GridShift.Bool_Rho_to_Upt(WFace), dtype = bool)
     EFace = np.array(GridShift.Bool_Rho_to_Upt(EFace), dtype = bool)
     
+    #find intersection between land mask and rho mask
+    Rmask = np.logical_and(Rmask, land)
+        
     Masks = {
             'RhoMask':Rmask,\
             'U_Mask' : Umask,\
@@ -43,7 +60,8 @@ def CreateMasks(RomsNC, Vertices) :
             'NFace' : NFace, \
             'WFace' : WFace, \
             'SFace' : SFace, \
-            'EFace' : EFace, 
+            'EFace' : EFace, \
+            'LandMask': land
             }
     
     return Masks
@@ -106,6 +124,8 @@ def TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     
     salt = Avg.variables['salt'][tstep, :, :, :]*Masks['RhoMask']
     
+    vprime = vprime*Masks['RhoMask']
+    
     Int_Sprime = np.sum(2*vprime*(var_rate - (salt/deltaA)*dDelta_dt)*dV)
     
     return Int_Sprime
@@ -121,10 +141,10 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     South_var = GridShift.Rho_to_Vpt(vprime2)*Masks['SFace']
     
     #velocities at faces oriented into CV
-    North_V = -1*Avg.variables['v'][tstep, :, :, :]*Masks['NFace']
-    West_U = Avg.variables['u'][tstep, :, :, :]*Masks['WFace']
-    South_V = Avg.variables['v'][tstep, :, :, :]*Masks['SFace']
-    East_U = -1*Avg.variables['u'][tstep, :, :, :]*Masks['EFace']
+    North_V = Avg.variables['v'][tstep, :, :, :]*Masks['NFace'] #-1
+    West_U = -1*Avg.variables['u'][tstep, :, :, :]*Masks['WFace']
+    South_V = -1*Avg.variables['v'][tstep, :, :, :]*Masks['SFace']
+    East_U = Avg.variables['u'][tstep, :, :, :]*Masks['EFace'] #-1
     
     #Advective Fluxes through each boundary
     North = North_var*North_V*Areas['North_Ay']
@@ -137,13 +157,30 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     
     return AdvFlux
     
+def Adv_Flux_west(tstep, vprime2, Avg, Areas, Masks):
+    """
+    Advective flux through western boundary only
+    """
+    #shift to u points
+    West_var = GridShift.Rho_to_Upt(vprime2)*Masks['WFace']
+    
+    #Velocity at western face
+    West_U = -1*Avg.variables['u'][tstep, :, :, :]*Masks['WFace']
+    
+    #Advective flux through western boundary
+    West = West_var*West_U*Areas['West_Ax']
+    AdvFluxWest = np.sum(West)
+    
+    return AdvFluxWest    
+    
+    
 def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     """
     Diffusive flux across CV boundaries
     """
     #gradients of variance squared
-    dprime_u_dx = gr.x_grad_u(Avg, vprime2, dx)
-    dprime_v_dy = gr.y_grad_v(Avg, vprime2, dy)
+    dprime_u_dx = gr.x_grad_u(vprime2, dx, Masks)
+    dprime_v_dy = gr.y_grad_v(vprime2, dy, Masks)
     
     #apply face masks to gradients
     North_grad = dprime_v_dy*Masks['NFace']
@@ -156,22 +193,43 @@ def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     Ks = Avg.variables['nl_tnu2'][0]
     
     #diffusive fluxes through each boundary
-    North = -1*Ks*North_grad*Areas['North_Ay']
-    West = Ks*West_grad*Areas['West_Ax']
-    South = Ks*South_grad*Areas['South_Ay']
-    East = -1*Ks*East_grad*Areas['East_Ax']
+    North = Ks*North_grad*Areas['North_Ay']
+    West = -1*Ks*West_grad*Areas['West_Ax']
+    South = -1*Ks*South_grad*Areas['South_Ay']
+    East = Ks*East_grad*Areas['East_Ax']
     
     DifFlux = np.sum(North) + np.sum(West) + np.sum(South) + np.sum(East)
     
     return DifFlux
+    
+def Diff_Flux_west(Avg, vprime2, dx, Areas, Masks) :
+    """
+    Diffusive flux through western boundary only
+    """
+    #zonal gradient
+    dprime_u_dx = gr.x_grad_u(vprime2, dx, Masks)
+    
+    #subset west face
+    West_grad = dprime_u_dx*Masks['WFace']
+    
+    #horizontal diffusion coef
+    Ks = Avg.variables['nl_tnu2'][0]
+    
+    #diffusive flux
+    West = -1*Ks*West_grad*Areas['West_Ax']
+    DifFlux_west = np.sum(West)
+    
+    return DifFlux_west
+    
+    
 
 def Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks) :
     """
     Internal Mixing Term
     """
-    xgrad = gr.x_grad_rho(Avg, vprime, dx)**2 
-    ygrad = gr.x_grad_rho(Avg, vprime, dy)**2
-    zgrad = gr.z_grad(tstep, vprime, dz)**2
+    xgrad = gr.x_grad_rho(vprime, dx, Masks)**2 
+    ygrad = gr.x_grad_rho(vprime, dy, Masks)**2
+    zgrad = gr.z_grad(vprime, dz)**2
     
     kvw = Avg.variables['AKs'][tstep, :, :, :]
     

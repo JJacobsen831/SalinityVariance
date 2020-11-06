@@ -19,8 +19,7 @@ import Gradients_Tstep as gr
 #import numpy.ma as ma
 #import Exact_Budget_Terms
 
-lat = Avg.variables['lat_rho'][:]
-lon = Avg.variables['lon_rho'][:]
+
 
 #bounds of control volume
 Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
@@ -36,7 +35,13 @@ Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
 GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
 
 #variable
-salt = Avg.variables['salt'][0,:,:,:]
+lat = Avg.variables['lat_rho'][:]
+lon = Avg.variables['lon_rho'][:]
+salt = Avg.variables['salt'][0,0,:,:]
+m = np.ma.getmask(salt)
+
+lats = np.ma.array(lat, mask = m)
+lons = np.ma.array(lon, mask = m)
 
 RomsNC = Avg
 
@@ -57,7 +62,7 @@ chkv0 = np.array([[1, 2, 3], [1,2,3], [1,2,3]])
 chkv0 = np.repeat(chkv0[np.newaxis, :,:], 1, axis = 0)
 chk = GridShift.Rho_to_Upt(chkv0)
 
-
+tstep = 0
 
 def FaceMask(Lats, Lons, Vertices) :
     """
