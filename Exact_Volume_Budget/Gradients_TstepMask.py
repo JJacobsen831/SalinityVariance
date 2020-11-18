@@ -19,16 +19,17 @@ def x_grad_u(var, dx, Masks) :
     
     #gradient in x direction [u points]
     dvar_u = np.ma.diff(var, n = 1, axis = 2)
-   
+    
+    #mask from shifted array
+    land_u = np.ma.getmask(dvar_u)
+       
     #dx on u points
     dx_u = GridShift.Rho_to_Upt(dx)
     
     #gradient
-    dvar_dx = dvar_u/dx_u
+    dvar_dx = np.ma.array(dvar_u/dx_u, mask = land_u)
     
-    #turn into numpy array, apply new land mask
-    dvar_dx = np.array(dvar_dx)*np.invert(np.ma.getmask(dvar_dx))
-    
+        
     return dvar_dx
 
 
@@ -42,15 +43,17 @@ def x_grad_rho(var, dx, Masks) :
     #gradient in x direction on u points
     dvar_u = np.ma.diff(var, n = 1, axis = 2)
     
+    #land mask on u points    
+    land_u = np.ma.getmask(dvar_u)
+    land_rho = np.ma.concatenate((land_u, land_u[:,:,-2:-1]), axis = 2)
+    
     #shift u points to rho points
-    dvar_rho = GridShift.Upt_to_Rho(dvar_u)
+    dvar_rho = np.ma.array(GridShift.Upt_to_Rho(dvar_u), mask =land_rho)
     
     #compute gradient
     dvar_dx = dvar_rho/dx
     
-    #turn into numpy array and apply shifted land mask
-    #dvar_dx = np.array(dvar_dx)*np.invert(np.ma.getmask(dvar_dx))
-    
+        
     return dvar_dx
 
 def y_grad_rho(var, dy, Masks):
@@ -63,15 +66,17 @@ def y_grad_rho(var, dy, Masks):
     #compute difference [v points]
     dvar_v = np.ma.diff(var, n = 1, axis = 1)
     
+    #land mask on v points
+    land_v = np.ma.getmask(dvar_v)
+    land_rho = np.ma.concatenate((land_v, land_v[:,-2:-1,:]), axis = 1)
+    
     #shift v points to rho points
-    dvar_rho = GridShift.Vpt_to_Rho(dvar_v)
+    dvar_rho = np.ma.array(GridShift.Vpt_to_Rho(dvar_v), mask = land_rho)
     
     #compute gradient
     dvar_dy = dvar_rho/dy
     
-    #turn into numpy array and apply shifted land mask
-    #dvar_dy = np.array(dvar_dy)*np.invert(np.ma.getmask(dvar_dy))    
-    
+        
     return dvar_dy
 
 def y_grad_v(var, dy, Masks):
@@ -84,15 +89,16 @@ def y_grad_v(var, dy, Masks):
     #gradient on v points
     dvar_v = np.diff(var, n = 1, axis = 1)
     
+    #mask on v points
+    land_v = np.ma.getmask(dvar_v)
+    
     #shift V points to rho grid
     dy_v = GridShift.Rho_to_Vpt(dy)
        
     #compute gradient on v
-    dvar_dy = dvar_v/dy_v
+    dvar_dy = np.ma.array(dvar_v/dy_v, mask = land_v)
     
-    #turn into numpy array and apply shifted land mask
-    dvar_dy = np.array(dvar_dy)*np.invert(np.ma.getmask(dvar_dy))
-    
+       
     return dvar_dy
     
 

@@ -11,8 +11,7 @@ import obs_depth_JJ as dep
 import GridShift_3D as GridShift
 import PolyMask as mt
 import Differential_Tstep as dff
-import Gradients_Tstep as gr
-import Gradients_TstepMask as gr2
+import Gradients_TstepMask as gr
 
 def CreateMasks(RomsNC, Vertices) :
     """
@@ -91,9 +90,9 @@ def CellAreas(dx, dy, dz, Masks) :
     return Areas
 
 
-def TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
+def TimeDeriv(tstep,salt, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     """
-    Exact volume time derivative of variance squared
+    Exact volume time derivative of salt
     """
     #change in vertical thickness of cell at average point
     deltaA = np.diff(dep._set_depth(AvgFile, None, 'w', \
@@ -123,11 +122,10 @@ def TimeDeriv(tstep, vprime, Hist, HistFile, Avg, AvgFile, Diag, dA_xy, Masks):
     #compute volume
     dV = dA_xy*deltaA
     
-    salt = Avg.variables['salt'][tstep, :, :, :]*Masks['RhoMask']
+    salt = salt*Masks['RhoMask']
     
-    vprime = vprime*Masks['RhoMask']
-    
-    Int_Sprime = np.sum(2*vprime*(var_rate - (salt/deltaA)*dDelta_dt)*dV)
+        
+    Int_Sprime = np.sum((var_rate - (salt/deltaA)*dDelta_dt)*dV)
     
     return Int_Sprime
     
@@ -158,12 +156,12 @@ def Adv_Flux(tstep, vprime2, Avg, Areas, Masks):
     
     return AdvFlux
     
-def Adv_Flux_west(tstep, vprime2, Avg, Areas, Masks):
+def Adv_Flux_west(tstep, var, Avg, Areas, Masks):
     """
     Advective flux through western boundary only
     """
     #shift to u points
-    West_var = GridShift.Rho_to_Upt(vprime2)*Masks['WFace']
+    West_var = GridShift.Rho_to_Upt(var)*Masks['WFace']
     
     #Velocity at western face
     West_U = -1*Avg.variables['u'][tstep, :, :, :]*Masks['WFace']
@@ -174,6 +172,54 @@ def Adv_Flux_west(tstep, vprime2, Avg, Areas, Masks):
     
     return AdvFluxWest    
     
+def Adv_Flux_west_diag(tstep, var, Diag, dx,dy,dz, Masks):
+    """
+    
+    """
+    #shift to u points
+    West_var = var[Masks['RhoMask']]
+    
+    #x advection
+    xadv = Diag.variables['salt_xadv'][tstep,:,:,:])[Masks['RhoMask']]
+    
+    #cell volume
+    dV =GridShift.Rho_to_Upt(dx*dy*dz)[Masks['U_Mask']]
+    
+    #advective flux rough western boundary
+    AdvFluxWest = np.sum(West_var*xadv*dV)
+    
+    return AdvFluxWest
+    
+def Ad_Flux_div(tstep, var, Avg, dx, dy, dz, Masks):
+    """
+    Advective flux with divergence method
+    """
+    #gradients of sprime2
+    xgrad = gr.x_grad_rho(var, dx, Masks)[Masks['RhoMask']]
+    ygrad = gr.y_grad_rho(var, dy, Masks)[Masks['RhoMask']]
+    zgrad = gr.z_grad(var, dz)[Masks['RhoMask']]
+    
+    u = np.ma.array(GridShift.Upt_to_Rho(Avg.variables['u'][tstep, :,:, :]), \
+                    mask = np.invert(Masks['LandMask']))
+    ur = GridShift.Upt_to_Rho(uu)
+    
+    dV = (dx*dy*dz)[Masks['RhoMask']]
+    
+    #horizontal divergence
+    div_i = Avg.variables['u'][tstep, :,:,:][Masks['U_Mask']]*xgrad
+    div_j = Avg.variables['v'][tstep, :,:,:][Masks['V_Mask']]*ygrad
+    
+    #vertical divergence
+    div_k = GridShift.Wpt_to_Rho(Avg.variables['w'][tstep, :,:,:])[Masks['RhoMask']]*zgrad
+
+  
+    
+    div = (div_i + div_j + div_k)*dV
+    
+    AdvFlux = np.sum(div)
+    
+    return AdvFlux
+
     
 def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     """
@@ -203,12 +249,12 @@ def Diff_Flux(Avg, vprime2, dx, dy, Areas, Masks) :
     
     return DifFlux
     
-def Diff_Flux_west(Avg, vprime2, dx, Areas, Masks) :
+def Diff_Flux_west(Avg, salt, dx, Areas, Masks) :
     """
     Diffusive flux through western boundary only
     """
     #zonal gradient
-    dprime_u_dx = gr.x_grad_u(vprime2, dx, Masks)
+    dprime_u_dx = gr.x_grad_u(salt, dx, Masks)
     
     #subset west face
     West_grad = dprime_u_dx*Masks['WFace']
@@ -224,26 +270,32 @@ def Diff_Flux_west(Avg, vprime2, dx, Areas, Masks) :
     
     
 
-def Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks) :
+def Int_Mixing(tstep, var, Avg, dx, dy, dz, Masks) :
     """
-    Internal Mixing Term
+    Internal Mixing Term 
     """
-    xgrad = gr.x_grad_rho(vprime, dx, Masks)**2 
-    ygrad = gr.y_grad_rho(vprime, dy, Masks)**2
-    zgrad = gr.z_grad(vprime, dz)**2
+    #gradient of salt
+    xgrad = gr.x_grad_rho(var, dx, Masks)
+    ygrad = gr.y_grad_rho(var, dy, Masks)
+    zgrad = gr.z_grad(var, dz)
     
-    kvw = Avg.variables['AKs'][tstep, :, :, :]
-    
-    kv = GridShift.Wpt_to_Rho(kvw)
-        
+    #eddy viscosity coefs
+    kv = GridShift.Wpt_to_Rho(Avg.variables['AKs'][tstep, :, :, :])
     kh = Avg.variables['nl_tnu2'][0]
     
+    #differential volume
     dV = dx*dy*dz
     
-    xmix = (2*kh*xgrad*dV)[Masks['RhoMask']]
-    ymix = (2*kh*ygrad*dV)[Masks['RhoMask']]
-    zmix = (2*kv*zgrad*dV)[Masks['RhoMask']]
+    #diverence
+    xdiv = gr.x_grad_rho(kh*xgrad, dx, Masks)[Masks['RhoMask']]
+    ydiv = gr.y_grad_rho(kh*ygrad, dy, Masks)[Masks['RhoMask']]
+    zdiv = gr.z_grad(kv*zgrad,dz)[Masks['RhoMask']]
     
-    mixing = np.sum(xmix) + np.sum(ymix) + np.sum(zmix)
+   
     
+    div = xdiv + ydiv + zdiv
+    
+    #integrate
+    mixing = np.sum(div*dV[Masks['RhoMask']])
+        
     return mixing
