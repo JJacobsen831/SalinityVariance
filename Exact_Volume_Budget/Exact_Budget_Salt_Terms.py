@@ -180,7 +180,7 @@ def Adv_Flux_west_diag(tstep, var, Diag, dx,dy,dz, Masks):
     West_var = var[Masks['RhoMask']]
     
     #x advection
-    xadv = Diag.variables['salt_xadv'][tstep,:,:,:])[Masks['RhoMask']]
+    xadv = Diag.variables['salt_xadv'][tstep,:,:,:][Masks['RhoMask']]
     
     #cell volume
     dV =GridShift.Rho_to_Upt(dx*dy*dz)[Masks['U_Mask']]
@@ -201,7 +201,7 @@ def Ad_Flux_div(tstep, var, Avg, dx, dy, dz, Masks):
     
     u = np.ma.array(GridShift.Upt_to_Rho(Avg.variables['u'][tstep, :,:, :]), \
                     mask = np.invert(Masks['LandMask']))
-    ur = GridShift.Upt_to_Rho(uu)
+    ur = GridShift.Upt_to_Rho(u)
     
     dV = (dx*dy*dz)[Masks['RhoMask']]
     

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 #load files
 #time step
-FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out.jasen2/'
+FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out.jasen3/'
 HistFile = FilePath + 'ocean_his_2014.nc'
 Hist = nc4(HistFile, 'r')
 AvgFile = FilePath + 'ocean_avg_2014.nc'
@@ -27,10 +27,10 @@ Diag = nc4(FilePath + 'ocean_dia_2014.nc', 'r')
 #Vertices = np.array([[37.0, -123.0], [37.0, -122.5], [37.2, -122.5], [37.2, -123.0]])
 
 #Carmel Bay
-Vertices = np.array([[36.522, -121.948], [36.522, -121.926], [36.567, -121.926], [36.567, -121.948]])
+#Vertices = np.array([[36.522, -121.948], [36.522, -121.926], [36.567, -121.926], [36.567, -121.948]])
 
 #Monterey Bay
-#Vertices = np.array([[36.585, -121.976], [36.585, -121.784], [36.981, -121.784], [36.981, -121.976]])
+Vertices = np.array([[36.585, -121.976], [36.585, -121.784], [36.981, -121.784], [36.981, -121.976]])
 
 #create masks
 Masks = ebt.CreateMasks(Avg, Vertices)
@@ -87,26 +87,38 @@ for tstep in range(time.shape[0]-1) :
     IntMix[tstep] = ebt.Int_Mixing(tstep, vprime, Avg, dx, dy, dz, Masks)
 
 #plotting
-Total = dsdt_dV + AdvFlux - DifFlux + IntMix
+Resid = dsdt_dV + AdvFlux - DifFlux + IntMix
 
 pred = -AdvFlux + DifFlux - IntMix
 diff = pred - dsdt_dV
 err = np.abs(diff/dsdt_dV*100)
 
+Mix_Res = np.abs(Resid/IntMix)
+
+plt.figure()
 line0, = plt.plot(dsdt_dV, label = 'd/dt')
 line1, = plt.plot(AdvFlux, label = 'Advective Flux')
 line2, = plt.plot(DifFlux, label = 'Diffusive Flux')
 line3, = plt.plot(IntMix, label = 'Internal Mixing')
-line4, = plt.plot(Total, label = 'Sum of Terms')
+line4, = plt.plot(Resid, label = 'Residual')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-plt.title('Carmel Bay Salinity Variance Budget (model time step)')
+plt.title('Monterey Bay Salinity Variance Budget (model time step)')
 #plt.savefig('ExactBudget_Coastal_03Nov2020')
 
+plt.figure()
+plt.scatter(range(Mix_Res.size), Mix_Res)
+plt.plot(Mix_Res)
+plt.title('abs( residual/mixing )')
+plt.xlim(-1, 24)
+plt.ylim(0, 1)
+
+plt.figure()
 line0, = plt.plot(dsdt_dV, label = 'd/dt')
 line1, = plt.plot(pred, label = 'predicted')
 line2, = plt.plot(diff, label = 'difference')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
+plt.figure()
 plt.scatter(range(0,err.size), err)
 plt.xlim(-1,err.size)
 plt.title('% Error')

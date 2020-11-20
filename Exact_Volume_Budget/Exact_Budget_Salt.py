@@ -14,14 +14,13 @@ import obs_depth_JJ as dep
 import matplotlib.pyplot as plt
 
 
-#load files
-FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out/'
-HistFile = FilePath + 'ocean_his_2014_0005.nc'
+#load files (hourly output)
+FilePath = '/home/cae/runs/jasen/wc15.a01.b03.hourlywindWT.windmcurrent.diags/out.jasen3/'
+HistFile = FilePath + 'ocean_his_2014.nc'
 Hist = nc4(HistFile, 'r')
-AvgFile = FilePath + 'ocean_avg_2014_0005.nc'
+AvgFile = FilePath + 'ocean_avg_2014.nc'
 Avg = nc4(AvgFile, 'r')
-Diag = nc4(FilePath + 'ocean_dia_2014_0005.nc', 'r')
-#GridFile = '/home/ablowe/runs/ncfiles/grids/wc15.a01.b03_grd.nc'
+Diag = nc4(FilePath + 'ocean_dia_2014.nc', 'r')
 
 #bounds of control volume (points in counter clockwise order)
 #north west corner of domain for mask testing
@@ -57,7 +56,8 @@ DifFlux = np.empty(time.shape)
 DifFlux.fill(np.nan)
 IntMix = np.empty(time.shape)
 IntMix.fill(np.nan)
-tstep = 0
+HuonFlux = np.empty(time.shape)
+HuonFlux.fill(np.nan)
 
 ##Loop on time step
 for tstep in range(time.shape[0]) :
@@ -77,7 +77,9 @@ for tstep in range(time.shape[0]) :
     dsdt_dV[tstep] = ebt.TimeDeriv(tstep, var, Hist, HistFile, Avg, AvgFile, Diag, Areas['Axy'], Masks)
     
     #Advective flux
-    AdvFlux[tstep] = ebt.Ad_Flux_div(tstep, var, Avg, dx, dy, dz, Masks)
+    AdvFlux[tstep] = ebt.Adv_Flux_west(tstep, var, Avg, Areas, Masks)
+    
+    HuonFlux[tstep] = np.sum(Avg.variables['Huon_salt'][tstep,:,:,:][Masks['WFace']])
     
     #Diffusive Flux
     DifFlux[tstep] = ebt.Diff_Flux_west(Avg, var, dx, Areas, Masks)
@@ -88,11 +90,28 @@ for tstep in range(time.shape[0]) :
 #plotting
 Total = dsdt_dV + AdvFlux - DifFlux + IntMix
 
+plt.figure()
 line0, = plt.plot(dsdt_dV, label = 'd/dt')
 line1, = plt.plot(AdvFlux, label = 'Advective Flux')
 line2, = plt.plot(DifFlux, label = 'Diffusive Flux')
 line3, = plt.plot(IntMix, label = 'Internal Mixing')
 line4, = plt.plot(Total, label = 'Sum of Terms')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-plt.title('Monterey Bay Salt Budget')
-#plt.savefig('ExactBudget_Coastal_03Nov2020')
+plt.title('Monterey Bay Salt Budget Time Step (<u>*<s>)')
+
+Total1 = dsdt - HuonFlux - DifFlux + IntMix
+plt.figure()
+line0, = plt.plot(dsdt, label = 'd/dt')
+line1, = plt.plot(-1*HuonFlux, label = 'Huon_salt')
+line2, = plt.plot(DifFlux, label = 'Diffusive Flux')
+line3, = plt.plot(IntMix, label = 'Internal Mixing')
+line4, = plt.plot(Total1, label = 'Sum of Terms')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+plt.title('Monterey Bay Salt Budget Time Step (<u*s>)')
+
+chk = np.abs(AdvFlux/HuonFlux)
+plt.figure()
+plt.plot(chk)
+plt.grid()
+plt.title('abs ( Adv/Huon ) ')
+plt.ylim(0.999, 1.001)

@@ -61,14 +61,40 @@ dif = np.empty(time.shape)
 dif.fill(np.nan)
 
 for tstep in range(time.shape[0]) :
-    rate[tstep] = Diag.variables['salt_rate'][tstep,:,:,:][Masks['RhoMask']]
+    #compute depth at averg points
+    dz = np.diff(dep._set_depth(AvgFile, None, 'w',\
+                                Avg.variables['h'][:],\
+                                Avg.variables['zeta'][tstep, :, :]), \
+                 n = 1, axis = 0)
+                 
+    #cell volume
+    dV  = dx*dy*dz
     
-    hadv[tstep] = Diag.variables['salt_xadv'][tstep,:,:,:][Masks['RhoMask']] + \
-            Diag.variables['salt_yadv'][tstep,:,:,:][Masks['RhoMask']]
+    r = Diag.variables['salt_rate'][tstep,:,:,:][Masks['RhoMask']]*dV[Masks['RhoMask']]
+    rate[tstep] = np.sum(r)
     
-    vadv[tstep] = Diag.variables['salt_vadv'][tstep,:,:,:][Masks['RhoMask']]
+    ha = (Diag.variables['salt_xadv'][tstep,:,:,:][Masks['RhoMask']] + \
+            Diag.variables['salt_yadv'][tstep,:,:,:][Masks['RhoMask']])*dV[Masks['RhoMask']]
+    hadv[tstep] = np.sum(ha)
     
-    dif[tstep] = Diag.variables['salt_xdiff'][tstep,:,:,:][Masks['RhoMask']] + \
+    vadv[tstep] = np.sum(Diag.variables['salt_vadv'][tstep,:,:,:][Masks['RhoMask']]*dV[Masks['RhoMask']])
+    
+    di = (Diag.variables['salt_xdiff'][tstep,:,:,:][Masks['RhoMask']] + \
             Diag.variables['salt_ydiff'][tstep,:,:,:][Masks['RhoMask']] + \
-            Diag.variables['salt_vdiff'][tstep,:,:,:][Masks['RhoMask']]
+            Diag.variables['salt_vdiff'][tstep,:,:,:][Masks['RhoMask']])*dV[Masks['RhoMask']]
+    dif[tstep] = np.sum(di)
             
+#total
+total = rate - (hadv + vadv + dif)
+
+#plotting
+line0, = plt.plot(rate, label = 'rate')
+line1, = plt.plot(hadv, label = 'horz. adv.')
+line2, = plt.plot(vadv, label = 'vert. adv')
+line3, = plt.plot(dif, label = 'diffusion')
+line4, = plt.plot(total, label = 'sum')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+plt.title('Monterey Bay Diagnostic Salt Budget (daily time step)')
+
+plt.plot(total)
+plt.title('Salt_rate - (adv + diff)')
